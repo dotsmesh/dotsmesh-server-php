@@ -82,7 +82,8 @@ $app->routes
                 //     $response->headers->set($response->headers->make('Access-Control-Allow-Origin', '*'));
                 //     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
                 //     return $response;
-            } elseif ($request->query->exists('admin')) {
+            }
+            if ($request->query->exists('admin')) {
                 $hasAPISecret = defined('DOTSMESH_SERVER_ADMIN_API_SECRET') && strlen(DOTSMESH_SERVER_ADMIN_API_SECRET) > 0;
                 if (!$hasAPISecret) {
                     $hasLoggedInAdmin = Utilities::hasLoggedInAdmin($request, true);
@@ -96,12 +97,13 @@ $app->routes
                     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
                     return $response;
                 }
-            } elseif ($request->query->exists('setadminpassword')) {
-                Utilities::setAdminPassword($requestHost, $request->query->getValue('setadminpassword'));
-                $response = new App\Response('ok');
-                $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
-                return $response;
             }
+            //  elseif ($request->query->exists('setadminpassword')) {
+            //     Utilities::setAdminPassword($requestHost, $request->query->getValue('setadminpassword'));
+            //     $response = new App\Response('ok');
+            //     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+            //     return $response;
+            // }
             if ($request->query->exists('viewdata')) {
                 $keys = [];
                 $list = $app->data->getList()->sliceProperties(['key']);
@@ -218,7 +220,7 @@ $app->routes
                         ];
                         $method = $requestData['method'];
                         if (isset($methods[$method])) {
-                            $app->logs->log('request', $method);
+                            //$app->logs->log('request', $method);
                             $class = $methods[$method];
                             $result = (new $class($requestData['args'], $requestData['options']))->run();
                             $response = new App\Response\JSON(json_encode([
