@@ -86,7 +86,7 @@ $renderList = function ($properties, $keys, $type) {
         echo '<div class="card-hint">' . $hint . '</div>';
         echo '</div>';
     }
-    echo '<span class="button-1" onclick="makeKey(\'' . $type . '\')">Create new</span>';
+    echo '<span class="button button-2" onclick="makeKey(\'' . $type . '\')">Create new</span>';
 };
 
 ?><script>
@@ -113,8 +113,31 @@ $renderList = function ($properties, $keys, $type) {
 </script>
 <?php
 
+echo '<div class="title" style="padding:0 10px 70px 10px;">This is the administrator panel for<br>' . $host . '</div>';
+
 echo '<h1>Public profiles</h1>';
 $renderList($users, $usersKeys, 'u');
 
 echo '<br><br><h1>Groups</h1>';
 $renderList($groups, $groupsKeys, 'g');
+
+if (defined('DOTSMESH_INSTALLER_CONFIG')) {
+    $config = DOTSMESH_INSTALLER_CONFIG;
+    if (isset($config['autoUpdate'])) {
+        echo '<br><br><h1>Auto updates</h1>';
+        if ($config['autoUpdate']) {
+            echo 'They\'re ENABLED! The Dots Mesh software is updated automatically. This can be configured in the config.php file.';
+        } else {
+            echo 'They\'re DISABLED! You can enable them in the config.php file of your installation.';
+        }
+    }
+    if (isset($config['serverDataDir'])) {
+        echo '<br><br><h1>Data directory</h1>';
+        echo 'The server data is located at ' . realpath($config['serverDataDir']);
+    }
+
+    if (isset($config['serverLogsDir'])) {
+        echo '<br><br><h1>Logs directory</h1>';
+        echo 'The server logs are located at ' . realpath($config['serverLogsDir']);
+    }
+}

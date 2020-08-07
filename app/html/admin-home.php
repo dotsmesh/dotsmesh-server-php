@@ -16,9 +16,10 @@
         }
     };
 </script>
-<div style="max-width:300px;padding-top:100px;padding-bottom:100px;">
-    <label class="label-1" for="password">Password</label>
-    <input class="textbox-1" id="password" type="password">
-    <span class="button-1" style="margin-top:20px;" onclick="login()">Login</span>
+<div class="title" style="max-width:360px;margin:0 auto;">Welcome to the<br>administrator panel</div>
+<div style="max-width:260px;margin:0 auto;text-align:center;padding-top:20px;">
+    <label class="label" for="password">Password</label>
+    <input class="textbox" id="password" type="password" style="margin-top:20px;" />
+    <span class="button" style="margin-top:20px;" onclick="login()">Login</span>
 </div>
-<div style="font-size:13px;color:#999;max-width:400px;">This is the admin panel for <?= $host ?>. Login to manage the profiles and groups on that host and get invitation keys for new ones.</div>
+<div class="hint" style="max-width:360px;margin:0 auto;padding-top:40px;">This is the admininistrator panel for <?= $host ?>. Login to manage the profiles and groups on that host and get invitation keys for new ones.</div>
