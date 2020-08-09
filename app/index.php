@@ -96,6 +96,7 @@ $app->routes
                     }
                     $response = new App\Response\HTML(str_replace('{{content}}', $contentHTML, $templateHTML));
                     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                    $response->headers->set($response->headers->make('Cache-Control', 'no-cache, no-store, must-revalidate, private, max-age=0'));
                     return $response;
                 }
             }
