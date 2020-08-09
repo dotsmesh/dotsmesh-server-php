@@ -1,4 +1,12 @@
-<script>
+<?php
+
+/*
+ * Dots Mesh Server (PHP)
+ * https://github.com/dotsmesh/dotsmesh-server-php
+ * Free to use under the GPL-3.0 license.
+ */
+
+?><script>
     var login = async () => {
         var passwordElement = document.getElementById('password');
         var password = passwordElement.value;

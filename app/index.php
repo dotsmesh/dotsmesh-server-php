@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * Dots Mesh Server (PHP)
+ * https://github.com/dotsmesh/dotsmesh-server-php
+ * Free to use under the GPL-3.0 license.
+ */
+
 /**
 Host data structure
 a/ - admin
@@ -7,7 +13,7 @@ a/p/ - admin password
 p/ - properties
 c/ - changes
 k/ - property keys
-*/
+ */
 
 use BearFramework\App;
 use Minishlink\WebPush\VAPID;

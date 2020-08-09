@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * Dots Mesh Server (PHP)
+ * https://github.com/dotsmesh/dotsmesh-server-php
+ * Free to use under the GPL-3.0 license.
+ */
+
 use X\Utilities;
 
 // Utilities::addPropertyKey($host, 'u');

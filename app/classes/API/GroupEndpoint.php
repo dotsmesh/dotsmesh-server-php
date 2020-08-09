@@ -1,6 +1,12 @@
 <?php
 
 /*
+ * Dots Mesh Server (PHP)
+ * https://github.com/dotsmesh/dotsmesh-server-php
+ * Free to use under the GPL-3.0 license.
+ */
+
+/*
 Group log names
 0 - added member
 1 - added invitation
