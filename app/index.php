@@ -104,71 +104,71 @@ $app->routes
             //     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
             //     return $response;
             // }
-            if ($request->query->exists('viewdata')) {
-                $keys = [];
-                $list = $app->data->getList()->sliceProperties(['key']);
-                foreach ($list as $item) {
-                    $keys[] = $item->key;
-                }
-                print_r($keys);
-                exit;
-            }
-            if ($request->query->exists('update4')) {
-                // $keysToRename = [];
-                // $keysToDelete = [];
-                // $list = $app->data->getList()->sliceProperties(['key']);
-                // foreach ($list as $item) {
+            // if ($request->query->exists('viewdata')) {
+            //     $keys = [];
+            //     $list = $app->data->getList()->sliceProperties(['key']);
+            //     foreach ($list as $item) {
+            //         $keys[] = $item->key;
+            //     }
+            //     print_r($keys);
+            //     exit;
+            // }
+            // if ($request->query->exists('update4')) {
+            //     // $keysToRename = [];
+            //     // $keysToDelete = [];
+            //     // $list = $app->data->getList()->sliceProperties(['key']);
+            //     // foreach ($list as $item) {
 
-                //     $key = $item->key;
-                //     // $parts = explode('/', $key);
+            //     //     $key = $item->key;
+            //     //     // $parts = explode('/', $key);
 
-                //     // if ($parts[0] === 'p' && ($parts[2] === 'p' || $parts[2] === 's')) {
-                //     //     $parts[2] = 'd/' . $parts[2];
-                //     //     $newKey = implode('/', $parts);
-                //     //     $keysToRename[] = [$key, $newKey];
-                //     // }
-                //     if (substr($key, -4) === '/d/g') {
-                //         $keysToDelete[] = $key;
-                //     }
-                //     if (substr($key, -12) === '/d/profile/d') {
-                //         $keysToDelete[] = $key;
-                //     }
-                // }
-                // print_r($keysToRename);
-                // print_r($keysToDelete);
-                // if ($app->request->query->exists('do')) {
-                //     foreach ($keysToRename as $key) {
-                //         $app->logs->log('update3', 'rename ' . $key[0] . ' - ' . $key[1]);
-                //         $app->data->rename($key[0], $key[1]);
-                //     }
-                //     foreach ($keysToDelete as $key) {
-                //         $app->logs->log('update3', 'delete ' . $key);
-                //         $app->data->delete($key);
-                //     }
-                //     echo 'Done!';
-                // }
+            //     //     // if ($parts[0] === 'p' && ($parts[2] === 'p' || $parts[2] === 's')) {
+            //     //     //     $parts[2] = 'd/' . $parts[2];
+            //     //     //     $newKey = implode('/', $parts);
+            //     //     //     $keysToRename[] = [$key, $newKey];
+            //     //     // }
+            //     //     if (substr($key, -4) === '/d/g') {
+            //     //         $keysToDelete[] = $key;
+            //     //     }
+            //     //     if (substr($key, -12) === '/d/profile/d') {
+            //     //         $keysToDelete[] = $key;
+            //     //     }
+            //     // }
+            //     // print_r($keysToRename);
+            //     // print_r($keysToDelete);
+            //     // if ($app->request->query->exists('do')) {
+            //     //     foreach ($keysToRename as $key) {
+            //     //         $app->logs->log('update3', 'rename ' . $key[0] . ' - ' . $key[1]);
+            //     //         $app->data->rename($key[0], $key[1]);
+            //     //     }
+            //     //     foreach ($keysToDelete as $key) {
+            //     //         $app->logs->log('update3', 'delete ' . $key);
+            //     //         $app->data->delete($key);
+            //     //     }
+            //     //     echo 'Done!';
+            //     // }
 
-                $propertiesIDs = scandir($app->data->getFilename('p'));
-                $result = [];
-                foreach ($propertiesIDs as $propertyID) {
-                    if ($propertyID !== '.' && $propertyID !== '..') {
-                        $dataKey = 'p/' . $propertyID . '/x';
-                        $data = $app->data->getValue($dataKey);
-                        if ($data !== null) {
-                            $data = json_decode($data, true);
-                            print_r($data);
-                            if ($data['t'] === 'group') {
-                                $data['t'] = 'g';
-                            } else if ($data['t'] === 'user') {
-                                $data['t'] = 'u';
-                            }
-                            $app->data->setValue($dataKey, json_encode($data));
-                        }
-                    }
-                }
+            //     $propertiesIDs = scandir($app->data->getFilename('p'));
+            //     $result = [];
+            //     foreach ($propertiesIDs as $propertyID) {
+            //         if ($propertyID !== '.' && $propertyID !== '..') {
+            //             $dataKey = 'p/' . $propertyID . '/x';
+            //             $data = $app->data->getValue($dataKey);
+            //             if ($data !== null) {
+            //                 $data = json_decode($data, true);
+            //                 print_r($data);
+            //                 if ($data['t'] === 'group') {
+            //                     $data['t'] = 'g';
+            //                 } else if ($data['t'] === 'user') {
+            //                     $data['t'] = 'u';
+            //                 }
+            //                 $app->data->setValue($dataKey, json_encode($data));
+            //             }
+            //         }
+            //     }
 
-                exit;
-            }
+            //     exit;
+            // }
         }
     })
     ->add('OPTIONS /', function (App\Request $request) {
