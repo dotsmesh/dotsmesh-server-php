@@ -45,7 +45,7 @@ $requestHost = strtolower(substr($app->request->host, 9)); // remove dotsmesh. /
 
 if (array_search($requestHost, DOTSMESH_SERVER_HOSTS) === false) {
     http_response_code(503);
-    echo 'Invalid host!';
+    echo 'Unsupported host!';
     exit;
 }
 
