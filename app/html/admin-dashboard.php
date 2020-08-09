@@ -49,14 +49,15 @@ uasort($groupsKeys, function ($a, $b) {
 ksort($users);
 ksort($groups);
 
-$renderList = function ($properties, $keys, $type) {
+$renderList = function ($properties, $keys, $type) use ($host) {
+    $hasItems = false;
     foreach ($properties as $id => $details) {
         echo '<div class="card">';
         if ($details['t'] === 'u') {
-            $url = 'https://dotsmesh.com/#' . $id;
+            $url = 'https://dotsmesh.' . $host . '/#' . $id;
             $linkTitle = 'Visit profile';
         } else {
-            $url = 'https://dotsmesh.com/#g:' . $id;
+            $url = 'https://dotsmesh.' . $host . '/#g:' . $id;
             $linkTitle = 'Visit group';
         }
         echo '<a class="card-image icon-profile" href="' . $url . '" target="_blank" title="' . $linkTitle . '"></a>';
@@ -67,17 +68,16 @@ $renderList = function ($properties, $keys, $type) {
         echo '<div class="card-title">' . $id . '</div>';
         echo '<div class="card-hint">' . $hint . '</div>';
         echo '</div>';
+        $hasItems = true;
     }
     foreach ($keys as $key => $details) {
-
         if ($details['t'] === 'u') {
-            $url = 'https://dotsmesh.com/#-n:' . $key;
+            $url = 'https://dotsmesh.' . $host . '/#-n:' . $key;
             $linkTitle = 'Use now and create a new profile';
         } else {
-            $url = ''; //'https://dotsmesh.com/#ng/' . $key;
-            $linkTitle = ''; //Use now and create a new group
+            $url = '';
+            $linkTitle = '';
         }
-
         echo '<div class="card">';
         echo '<a class="card-image icon-key"' . ($url !== '' ? ' href="' . $url . '"' : '') . ' target="_blank" title="' . $linkTitle . '"></a>';
         echo '<a class="card-right-button icon-delete" title="Delete this key" onclick="deleteKey(\'' . $key . '\')"></a>';
@@ -85,6 +85,14 @@ $renderList = function ($properties, $keys, $type) {
         echo '<div class="card-title">' . $key . '</div>';
         echo '<div class="card-hint">' . $hint . '</div>';
         echo '</div>';
+        $hasItems = true;
+    }
+    if (!$hasItems) {
+        if ($type === 'u') {
+            echo 'Create a space on this host for a new public profile. Then, share its key with a friend or use it to create your own profile.<br><br>';
+        } else {
+            echo 'Generate a new group key that points to this host. Gift it to someone or use it to create a new group that you\'ll manage.<br><br>';
+        }
     }
     echo '<span class="button button-2" onclick="makeKey(\'' . $type . '\')">Create new</span>';
 };
@@ -124,20 +132,16 @@ $renderList($groups, $groupsKeys, 'g');
 if (defined('DOTSMESH_INSTALLER_CONFIG')) {
     $config = DOTSMESH_INSTALLER_CONFIG;
     if (isset($config['autoUpdate'])) {
-        echo '<br><br><h1>Auto updates</h1>';
         if ($config['autoUpdate']) {
-            echo 'They\'re ENABLED! The Dots Mesh software is updated automatically. This can be configured in the config.php file.';
+            echo '<br><br><h1>Auto updates (Enabled)</h1>';
+            echo 'The Dots Mesh software is updated automatically. This can be configured in the config.php file.';
         } else {
-            echo 'They\'re DISABLED! You can enable them in the config.php file of your installation.';
+            echo '<br><br><h1>Auto updates (Disabled)</h1>';
+            echo 'You can enable them in the config.php file (located in the installation directory).';
         }
     }
-    if (isset($config['serverDataDir'])) {
-        echo '<br><br><h1>Data directory</h1>';
-        echo 'The server data is located at ' . realpath($config['serverDataDir']);
-    }
-
-    if (isset($config['serverLogsDir'])) {
-        echo '<br><br><h1>Logs directory</h1>';
-        echo 'The server logs are located at ' . realpath($config['serverLogsDir']);
-    }
+}
+if (defined('DOTSMESH_INSTALLER_DIR')) {
+    echo '<br><br><h1>Installation directory</h1>';
+    echo 'The host data is located at ' . realpath(DOTSMESH_INSTALLER_DIR);
 }
