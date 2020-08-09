@@ -1,12 +1,13 @@
 <?php
 
 /**
-
 Host data structure
-p/ - properties/
-c/ - changes/
-
- */
+a/ - admin
+a/p/ - admin password
+p/ - properties
+c/ - changes
+k/ - property keys
+*/
 
 use BearFramework\App;
 use Minishlink\WebPush\VAPID;
