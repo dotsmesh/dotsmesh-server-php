@@ -185,7 +185,7 @@ $app->routes
             $response = new App\Response();
             $response->headers->set($response->headers->make('Access-Control-Allow-Origin', '*'));
             $response->headers->set($response->headers->make('Access-Control-Allow-Methods', 'POST,GET,OPTIONS'));
-            $response->headers->set($response->headers->make('Access-Control-Allow-Headers', 'Content-Type,Accept'));
+            $response->headers->set($response->headers->make('Access-Control-Allow-Headers', 'Content-Type,Cache-Control,Accept'));
             $response->headers->set($response->headers->make('Access-Control-Max-Age', '864000'));
             $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
             return $response;
