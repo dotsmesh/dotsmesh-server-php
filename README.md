@@ -14,7 +14,7 @@ This package is responsible for storing and delivering your profiles and groups 
 
 ### Custom installation
 
-Youn can [download the latest release as a PHAR file](https://github.com/dotsmesh/dotsmesh-server-app/releases) and run the server this way. Create the index.php with the following content and configure it properly:
+Youn can [download the latest release as a PHAR file](https://github.com/dotsmesh/dotsmesh-server-php/releases) and run the server this way. Create the index.php with the following content and configure it properly:
 ```php
 <?php
 
@@ -22,10 +22,10 @@ define('DOTSMESH_SERVER_DATA_DIR', 'path/to/data/dir'); // The directory where t
 define('DOTSMESH_SERVER_LOGS_DIR', 'path/to/logs/dir'); // The directory where the logs will be stored.
 define('DOTSMESH_SERVER_HOSTS', ['example.com']); // A list of hosts supported by the server.
 
-require 'dotsmesh-server-app-x.x.x.phar';
+require 'dotsmesh-server-php-x.x.x.phar';
 ```
 
-There is a [ZIP file](https://github.com/dotsmesh/dotsmesh-server-app/releases) option too. Just extract the content to a directory and point the index.php file to it.
+There is a [ZIP file](https://github.com/dotsmesh/dotsmesh-server-php/releases) option too. Just extract the content to a directory and point the index.php file to it.
 ```php
 <?php
 
@@ -33,12 +33,12 @@ define('DOTSMESH_SERVER_DATA_DIR', 'path/to/data/dir'); // The directory where t
 define('DOTSMESH_SERVER_LOGS_DIR', 'path/to/logs/dir'); // The directory where the logs will be stored.
 define('DOTSMESH_SERVER_HOSTS', ['example.com']); // A list of hosts supported by the server.
 
-require 'dotsmesh-server-app-x.x.x/app/index.php';
+require 'dotsmesh-server-php-x.x.x/app/index.php';
 ```
 
 ## License
 
-The Dots Mesh Server is licensed under the GPL v3 license. See the [license file](https://github.com/dotsmesh/dotsmesh-server-app/blob/master/LICENSE) for more information.
+The Dots Mesh Server is licensed under the GPL v3 license. See the [license file](https://github.com/dotsmesh/dotsmesh-server-php/blob/master/LICENSE) for more information.
 
 ## Contributions
 
