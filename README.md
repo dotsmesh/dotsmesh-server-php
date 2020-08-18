@@ -10,7 +10,31 @@ This package is responsible for storing and delivering your profiles and groups 
 
 ## How to install
 
-[The Dots Mesh installer](https://about.dotsmesh.com/self-host/) is the recommended way to create your own host and join the platform.
+[The Dots Mesh installer](https://about.dotsmesh.com/self-host/) is the recommended way to create your own host and join the platform. It will guide you through all the requirements and will install everything needed. There is an auto-update option, so you'll always use the latest stable version of the software.
+
+### Custom installation
+
+Youn can [download the latest release as a PHAR file](https://github.com/dotsmesh/dotsmesh-server-app/releases) and run the server this way. Create the index.php with the following content and configure it properly:
+```php
+<?php
+
+define('DOTSMESH_SERVER_DATA_DIR', 'path/to/data/dir'); // The directory where the data will be stored.
+define('DOTSMESH_SERVER_LOGS_DIR', 'path/to/logs/dir'); // The directory where the logs will be stored.
+define('DOTSMESH_SERVER_HOSTS', ['example.com']); // A list of hosts supported by the server.
+
+require 'dotsmesh-server-app-x.x.x.phar';
+```
+
+There is a [ZIP file](https://github.com/dotsmesh/dotsmesh-server-app/releases) option too. Just extract the content to a directory and point the index.php file to it.
+```php
+<?php
+
+define('DOTSMESH_SERVER_DATA_DIR', 'path/to/data/dir'); // The directory where the data will be stored.
+define('DOTSMESH_SERVER_LOGS_DIR', 'path/to/logs/dir'); // The directory where the logs will be stored.
+define('DOTSMESH_SERVER_HOSTS', ['example.com']); // A list of hosts supported by the server.
+
+require 'dotsmesh-server-app-x.x.x/app/index.php';
+```
 
 ## License
 
