@@ -10,9 +10,8 @@ namespace X\API\Endpoints;
 
 use BearFramework\App;
 use X\API\GroupEndpoint;
-use X\Utilities;
 
-class GroupPostsAdd extends GroupEndpoint
+class GroupPostsEdit extends GroupEndpoint
 {
     public function run(): array
     {
@@ -23,23 +22,33 @@ class GroupPostsAdd extends GroupEndpoint
         $app = App::get();
         $dataPrefix = $this->getDataPrefix($groupID);
 
+        $postID = $this->getArgument('postID', ['notEmptyString']);
         $post = $this->getArgument('post', ['notEmptyString']);
-        $resources = $this->getArgument('resources', ['array']);
+        $resourcesToSave = $this->getArgument('resourcesToSave', ['array']);
+        $resourcesToDelete = $this->getArgument('resourcesToDelete', ['array']);
 
-        $postID = Utilities::generateDateBasedID();
+        if (!$this->isMemberPost($groupID, $memberID, $postID)) {
+            return ['status' => 'noAccess'];
+        }
+
         $app->data->setValue($dataPrefix . 'd/s/a/p/' . $postID, $post);
 
         $resourceDataKeyPrefix = $dataPrefix . 'd/s/a/a/' . $postID . '-';
-        foreach ($resources as $resourceID => $resourceValue) {
+        foreach ($resourcesToSave as $resourceID => $resourceValue) {
             // todo validate $resourceID
             $app->data->setValue($resourceDataKeyPrefix . $resourceID, $resourceValue);
         }
-        
-        $this->addToGroupLog('s', $groupID, 'p', 4, [$memberID, $postID]);
-        $this->addToMemberLog('s', $groupID, $memberID, 4, $postID);
+
+        foreach ($resourcesToDelete as $resourceID) {
+            // todo validate $resourceID
+            $app->data->delete($resourceDataKeyPrefix . $resourceID);
+        }
+
+        $this->addToGroupLog('s', $groupID, 'p', 'c', [$memberID, $postID]);
+        $this->addToMemberLog('s', $groupID, $memberID, 'c', $postID);
 
         $this->announceChanges($groupID, ['gp']);
 
-        return ['status' => 'ok', 'id' => $postID];
+        return ['status' => 'ok'];
     }
 }

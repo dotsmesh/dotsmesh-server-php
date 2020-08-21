@@ -23,7 +23,10 @@ class GroupPostsDelete extends GroupEndpoint
         $dataPrefix = $this->getDataPrefix($groupID);
 
         $postID = $this->getArgument('postID', ['notEmptyString']);
-        // todo vaildate ownership
+
+        if (!$this->isMemberPost($groupID, $memberID, $postID)) {
+            return ['status' => 'noAccess'];
+        }
 
         $dataKey = $dataPrefix . 'd/s/a/p/' . $postID;
         if ($app->data->exists($dataKey)) {

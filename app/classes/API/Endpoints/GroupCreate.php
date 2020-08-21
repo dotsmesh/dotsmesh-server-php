@@ -19,7 +19,7 @@ class GroupCreate extends GroupEndpoint
     {
         $app = App::get();
 
-        $groupKey = $this->getArgument('groupKey', ['notEmptyString']);
+        $groupKey = strtolower($this->getArgument('groupKey', ['notEmptyString']));
         //$initialData = $this->getArgument('initialData', ['array']);
         $memberID = $this->getArgument('memberID', ['notEmptyString']); // validate
         $accessKey = $this->getArgument('accessKey', ['notEmptyString']);

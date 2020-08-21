@@ -218,6 +218,7 @@ $app->routes
                             'group.members.leave' => API\Endpoints\GroupMembersLeave::class,
                             'group.members.delete' => API\Endpoints\GroupMembersDelete::class,
                             'group.posts.add' => API\Endpoints\GroupPostsAdd::class,
+                            'group.posts.edit' => API\Endpoints\GroupPostsEdit::class,
                             'group.posts.delete' => API\Endpoints\GroupPostsDelete::class,
                             'group.posts.addPostReaction' => API\Endpoints\GroupPostsAddPostReaction::class,
                             'host.validatePropertyKey' => API\Endpoints\HostValidatePropertyKey::class,

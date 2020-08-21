@@ -20,6 +20,7 @@ Group log names
 9 - invitation used (non specific member)
 a - member deleted (from the admin)
 b - member approved (from the admin)
+c - edit post
 */
 
 namespace X\API;
@@ -145,6 +146,25 @@ class GroupEndpoint extends Endpoint
         $milliseconds = Utilities::getMilliseconds();
         $dataKey = $dataPrefix . 'd/' . $type . '/m/a/' . $memberID . '/l/' . Utilities::getDateID($milliseconds, 2);
         $app->data->append($dataKey, Utilities::getDateID($milliseconds) . ':' . Utilities::pack($name, $data) . "\n");
+    }
+
+    protected function isMemberPost(string $groupID, string $memberID, string $postID): bool
+    {
+        $app = App::get();
+        $type = 's'; // shared
+        $dataPrefix = $this->getDataPrefix($groupID) . 'd/' . $type . '/m/a/' . $memberID . '/l/';
+        $list = $app->data->getList()
+            ->filterBy('key', $dataPrefix, 'startWith')
+            ->sortBy('key', 'desc');;
+        foreach ($list as $item) {
+            $log = Utilities::parseLog($item->value, ['4']);
+            foreach ($log as $item) {
+                if ($item['data'] === $postID) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     protected function addInvitation(string $groupID, string $memberID, string $accessKey, $invitationData)

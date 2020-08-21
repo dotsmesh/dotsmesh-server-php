@@ -84,6 +84,7 @@ class Utilities
 
     static function createProperty(string $id, string $type, string $propertyKey): int
     {
+        $id = strtolower($id);
         if ($type === 'u' || $type === 'g') {
             $app = App::get();
             $lockKey = 'create-property-' . $id;
@@ -145,6 +146,19 @@ class Utilities
             return str_pad(base_convert(floor($milliseconds / 1000), 10, 36), 7, '0', STR_PAD_LEFT); // max Apr 05 4453
         } else if ($precision === 2) {
             return str_pad(base_convert(floor($milliseconds / 1000 / 86400), 10, 36), 4, '0', STR_PAD_LEFT); // max Aug 18 6568
+        }
+        throw new \Exception('');
+    }
+
+    static function parseDateID(string $dateID): int
+    {
+        $length = strlen($dateID);
+        if ($length === 9) {
+            return base_convert($dateID, 36, 10);
+        } else if ($length === 7) {
+            return base_convert($dateID,  36, 10) * 1000;
+        } else if ($length === 4) {
+            return base_convert($dateID,  36, 10) * 1000 * 86400;
         }
         throw new \Exception('');
     }
@@ -278,6 +292,7 @@ class Utilities
 
     static function validatePropertyKey(string $key, string $type): bool
     {
+        $key = strtolower($key);
         if (substr($key, -1) === $type) {
             $app = App::get();
             $dataKey = 'k/' . str_replace(':', '.', $key);
@@ -297,6 +312,7 @@ class Utilities
 
     static private function setPropertyKeyPropertyID(string $key, string $id): void
     {
+        $key = strtolower($key);
         $app = App::get();
         $dataKey = 'k/' . str_replace(':', '.', $key);
         $value = $app->data->getValue($dataKey);
@@ -311,6 +327,7 @@ class Utilities
 
     static function deletePropertyKey(string $key): string
     {
+        $key = strtolower($key);
         $app = App::get();
         $dataKey = 'k/' . str_replace(':', '.', $key);
         $value = $app->data->getValue($dataKey);
@@ -342,6 +359,7 @@ class Utilities
 
     static function getKeyDetails(string $key): ?array
     {
+        $key = strtolower($key);
         $app = App::get();
         $dataKey = 'k/' . str_replace(':', '.', $key);
         $value = $app->data->getValue($dataKey);
@@ -754,6 +772,39 @@ class Utilities
                 $data = $app->data->getValue('p/' . $propertyID . '/x');
                 if ($data !== null) {
                     $result[$propertyID] = json_decode($data, true);
+                }
+            }
+        }
+        return $result;
+    }
+
+    static function parseLog(string $value, array $namesFilter = null, string $order = 'asc', int $limit = null): array
+    {
+
+        $lines = explode("\n", $value);
+        if ($order === 'desc') {
+            $lines = array_reverse($lines);
+        }
+        $result = [];
+        $linesCount = sizeof($lines);
+        for ($i = 0; $i < $linesCount; $i++) {
+            $line = trim($lines[$i]);;
+            if (strlen($line) > 0) {
+                $index = strpos($line, ':');
+                $date = substr($line, 0, $index);
+                $data = self::unpack(substr($line, $index + 1));
+                if ($namesFilter !== null && array_search($data['name'], $namesFilter) === false) {
+                    continue;
+                }
+                $result[] = [
+                    'date' => self::parseDateID($date),
+                    'name' => $data['name'],
+                    'data' => $data['value']
+                ];
+                if ($limit !== null) {
+                    if (sizeof($result) === $limit) {
+                        break;
+                    }
                 }
             }
         }
