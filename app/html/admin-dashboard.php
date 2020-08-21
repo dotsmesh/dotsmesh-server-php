@@ -69,7 +69,7 @@ $renderList = function ($properties, $keys, $type) use ($host) {
         echo '<a class="card-image icon-profile" href="' . $url . '" target="_blank" title="' . $linkTitle . '"></a>';
         $hint = 'Created on ' . date('F d, Y', $details['d']);
         if (isset($details['k'])) {
-            $hint .= '<br>Used key: ' . $details['k'];
+            $hint .= '<br>Used key: ' . strtoupper($details['k']);
         }
         echo '<div class="card-title">' . $id . '</div>';
         echo '<div class="card-hint">' . $hint . '</div>';
@@ -78,7 +78,7 @@ $renderList = function ($properties, $keys, $type) use ($host) {
     }
     foreach ($keys as $key => $details) {
         if ($details['t'] === 'u') {
-            $url = 'https://dotsmesh.' . $host . '/#-n:' . $key;
+            $url = 'https://dotsmesh.' . $host . '/#-n:' . strtoupper($key);
             $linkTitle = 'Use now and create a new profile';
         } else {
             $url = '';
@@ -88,7 +88,7 @@ $renderList = function ($properties, $keys, $type) use ($host) {
         echo '<a class="card-image icon-key"' . ($url !== '' ? ' href="' . $url . '"' : '') . ' target="_blank" title="' . $linkTitle . '"></a>';
         echo '<a class="card-right-button icon-delete" title="Delete this key" onclick="deleteKey(\'' . $key . '\')"></a>';
         $hint = 'Created on ' . date('F d, Y', $details['d']);
-        echo '<div class="card-title">' . $key . '</div>';
+        echo '<div class="card-title">' . strtoupper($key) . '</div>';
         echo '<div class="card-hint">' . $hint . '</div>';
         echo '</div>';
         $hasItems = true;
