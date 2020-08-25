@@ -14,7 +14,7 @@ This package is responsible for storing and delivering your profiles and groups 
 
 ### Custom installation
 
-Youn can [download the latest release as a PHAR file](https://github.com/dotsmesh/dotsmesh-server-php/releases) and run the server this way. Create the index.php with the following content and configure it properly:
+You can [download the latest release as a PHAR file](https://github.com/dotsmesh/dotsmesh-server-php/releases) and run the server this way. Create the index.php with the following content and configure it properly:
 ```php
 <?php
 
