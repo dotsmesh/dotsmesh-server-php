@@ -27,7 +27,9 @@ class UserInbox extends UserEndpoint
         $data = $this->getArgument('data', ['notEmptyString']);
         $resources = $this->getArgument('resources', ['array']);
 
-        $messageID = '3' . Utilities::generateDateBasedID(); // todo priority 1-5
+        $priority = '3'; // todo priority 1-5
+        $messageID = $priority . Utilities::generateDateBasedID();
+        // todo limit by accessKey
         $app->data->setValue($dataPrefix . 'd/' . $messageID, Utilities::pack('0', [
             $accessKey, // access key used
             $data, // encrypted data
