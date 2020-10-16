@@ -477,7 +477,7 @@ class Utilities
                     'keys' => $changedKeys
                 ];
                 $result = self::makeServerRequest('POST', 'https://dotsmesh.' . $hostToNotify . '/?host&api', ['method' => 'host.changes.notify', 'args' => $args, 'options' => []]);
-                $app->logs->log('notify', $hostToNotify . ' - ' . $hostToNotify . ' - ' . $result);
+                $app->logs->log('notify', $hostToNotify . ' - ' . $hostToNotify . ' - ' . print_r($result, true));
             }
         }
     }
@@ -665,7 +665,7 @@ class Utilities
                         'keysToRemove' => isset($notifyRemovedKeys[$hostToNotify]) ? $notifyRemovedKeys[$hostToNotify] : []
                     ];
                     $result = self::makeServerRequest('POST', 'https://dotsmesh.' . $hostToNotify . '/?host&api', ['method' => 'host.changes.subscription', 'args' => $args, 'options' => []]);
-                    $app->logs->log('subscribe', $userID . ' - ' . $hostToNotify . ' - ' . $result);
+                    $app->logs->log('subscribe', $userID . ' - ' . $hostToNotify . ' - ' . print_r($result, true));
                 }
             } else {
                 // should not get here, but just in case
