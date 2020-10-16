@@ -10,6 +10,6 @@
         "php": ">=7.0",
         "bearframework/bearframework": "1.*",
         "ivopetkov/locks-bearframework-addon": "0.1.*",
-        "minishlink/web-push": "5.*"
+        "minishlink/web-push": "6.*"
     }
 }

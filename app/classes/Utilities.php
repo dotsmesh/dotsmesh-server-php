@@ -237,24 +237,13 @@ class Utilities
         ];
         $webPush = new \Minishlink\WebPush\WebPush($auth);
         foreach ($subscriptions as $subscription) {
-            $webPush->sendNotification(
-                \Minishlink\WebPush\Subscription::create($subscription),
-                json_encode(['date' => time()]),
-                false
+            $webPush->queueNotification(
+                \Minishlink\WebPush\Subscription::create($subscription)
             );
         }
         foreach ($webPush->flush() as $report) {
-            //$endpoint = $report->getRequest()->getUri()->__toString();
-            $statusCode = $report->getResponse()->getStatusCode();
             $success = (int) $report->isSuccess();
-            $app->logs->log('push', $userID . ' - ' . $success . ' - ' . $statusCode);
-
-            // if ($report->isSuccess()) {
-            //     echo "[v] Message sent successfully for subscription {$endpoint}.";
-            // } else {
-            //     echo "[x] Message failed to sent for subscription {$endpoint}: {$report->getReason()}";
-            // }
-            // echo "\n\n";
+            $app->logs->log('push', $userID . ' - ' . $success . ' - ' . $report->getReason());
         }
     }
 
