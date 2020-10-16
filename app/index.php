@@ -12,6 +12,10 @@ a/ - admin
 a/p/ - admin password
 p/ - properties
 c/ - changes
+c/l - changes log
+c/s - changes subscribers
+c/o/h/[host] - changes subscribed host data
+c/o/u/[id] - changes subscribed user data
 k/ - property keys
  */
 
@@ -205,6 +209,7 @@ $app->routes
                             'user.inbox' => API\Endpoints\UserInbox::class,
                             'user.login' => API\Endpoints\UserLogin::class,
                             'user.logout' => API\Endpoints\UserLogout::class,
+                            'user.setPushSubscription' => API\Endpoints\UserSetPushSubscription::class,
                             'user.signup' => API\Endpoints\UserSignup::class,
                             'user.updateAuth' => API\Endpoints\UserUpdateAuth::class,
                             'user.changes.announce' => API\Endpoints\UserChangesAnnounce::class,

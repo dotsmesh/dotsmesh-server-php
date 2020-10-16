@@ -51,7 +51,8 @@ class UserEndpoint extends Endpoint
             if ($sessionData['s'] === $sessionKeyHash) {
                 return [
                     'dataKey' => $sessionDataKey,
-                    'sessionData' => $sessionData['d']
+                    'sessionData' => $sessionData['d'],
+                    'pushData' => isset($sessionData['p']) ? $sessionData['p'] : null,
                 ];
             }
         }
@@ -73,7 +74,6 @@ class UserEndpoint extends Endpoint
                 $firewall = $data['value'];
             } else {
                 // not supported format
-
             }
         }
         if (array_search($accessKeyHash, $firewall) !== false) {
