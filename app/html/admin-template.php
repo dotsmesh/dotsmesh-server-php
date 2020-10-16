@@ -286,7 +286,7 @@ $logo = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/
     </script>
 </head>
 
-<body style="padding-bottom:80px;">
+<body style="padding-bottom:80px;box-sizing:border-box;">
     <header>
         <div style="padding-top:100px;padding-bottom:70px;">
             <span style="display:block;width:160px;margin:0 auto;height:25px;background-size:contain;background-position:center;background-repeat:no-repeat;background-image:url(data:image/svg+xml;base64,<?= base64_encode($logo) ?>)"></span>
