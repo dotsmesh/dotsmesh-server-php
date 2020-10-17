@@ -199,52 +199,60 @@ class Utilities
         foreach ($list as $item) {
             $value = json_decode($item->value, true);
             if (isset($value['p']) && strlen($value['p']) > 0) {
-                $subscription = json_decode($value['p'], true);
-                if (is_array($subscription)) {
-                    $result[] = $subscription;
-                }
+                $result[] = $value['p'];
             }
         }
         return $result;
     }
 
-    static function queuePushNotifications(string $userID)
+    /**
+     * Add a user id to the push notifications queue.
+     *
+     * @param string $userID The user id to add.
+     * @param mixed $payload The payload to send.
+     * @return void
+     */
+    static function queuePushNotification(string $userID, $payload = null): void
     {
-        self::$queuedPushNotifications[] = $userID;
+        self::$queuedPushNotifications[] = [$userID, $payload];
     }
 
-    static function sendQueuedPushNotifications()
+    /**
+     * Send the queued push notifications.
+     * 
+     * @return void
+     */
+    static function sendQueuedPushNotifications(): void
     {
-        $userIDs = array_unique(self::$queuedPushNotifications);
-        foreach ($userIDs as $userID) {
-            self::sendPushNotifications($userID);
+        if (empty(self::$queuedPushNotifications)) {
+            return;
         }
-    }
-
-    static function sendPushNotifications(string $userID)
-    {
-        $subscriptions = Utilities::getUserPushSubscriptions($userID);
-        if (empty($subscriptions)) {
-            return [];
+        foreach (self::$queuedPushNotifications as $queuedPushNotificationData) {
+            $userID = $queuedPushNotificationData[0];
+            $payload = $queuedPushNotificationData[1];
+            $subscriptions = Utilities::getUserPushSubscriptions($userID);
+            foreach ($subscriptions as $sessionID => $subscription) {
+                $subscription = self::unpack($subscription);
+                if ($subscription['name'] === 'q') {
+                    $data = $subscription['value']; // 0 - subscription, 1 - vapid public key, 2 - vapid private key
+                    if (isset($data[0], $data[1], $data[2]) && is_array($data[0]) && is_string($data[1]) && is_string($data[2])) {
+                        $webPush = new \Minishlink\WebPush\WebPush([
+                            'VAPID' => [
+                                'subject' => 'dotsmesh.' . DOTSMESH_SERVER_HOST_INTERNAL,
+                                'publicKey' => $data[1],
+                                'privateKey' => $data[2]
+                            ]
+                        ]);
+                        $result = $webPush->sendOneNotification(\Minishlink\WebPush\Subscription::create($data[0]), $payload !== null ? json_encode($payload) : null);
+                        self::log('user-push-notification', $userID . ' ' . ($result->isSuccess() ? 'success' : 'fail') . ' ' . $result->getReason());
+                        if ($result->isSubscriptionExpired()) {
+                            //self::deleteUserPushSubscription($userID, $sessionID);
+                        }
+                    }
+                }
+            }
         }
-        $app = App::get();
-        $auth = [
-            'VAPID' => [
-                'subject' => 'example.com',
-                'publicKey' => $app->data->getValue('vapidpublic'),
-                'privateKey' => $app->data->getValue('vapidprivate')
-            ],
-        ];
-        $webPush = new \Minishlink\WebPush\WebPush($auth);
-        foreach ($subscriptions as $subscription) {
-            $webPush->queueNotification(
-                \Minishlink\WebPush\Subscription::create($subscription)
-            );
-        }
-        foreach ($webPush->flush() as $report) {
-            $success = (int) $report->isSuccess();
-            $app->logs->log('push', $userID . ' - ' . $success . ' - ' . $report->getReason());
-        }
+        self::$queuedPushNotifications = [];
     }
 
     static function isAlphanumeric(string $value, int $maxLength): bool
@@ -505,7 +513,7 @@ class Utilities
                 $dataKey = self::getPropertyDataPrefix($userID) . '/d/p/i/d/' . $messageID;
                 $app->data->setValue($dataKey, Utilities::pack('1', [$userKey, Utilities::generateRandomBase62String(15)]));
             }
-            Utilities::queuePushNotifications($userID);
+            Utilities::queuePushNotification($userID);
         }
     }
 
