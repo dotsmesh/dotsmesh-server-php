@@ -799,4 +799,18 @@ class Utilities
         }
         return $result;
     }
+
+    /**
+     * 
+     * @param string $type
+     * @param string $text
+     * @return void
+     */
+    static function log(string $type, string $text)
+    {
+        if (array_search($type, DOTSMESH_SERVER_LOG_TYPES) !== false) {
+            $app = App::get();
+            $app->logs->log($type, DOTSMESH_SERVER_HOST_INTERNAL . ' | ' . $text);
+        }
+    }
 }

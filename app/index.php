@@ -29,6 +29,10 @@ if (!defined('DOTSMESH_SERVER_DEV_MODE')) {
     define('DOTSMESH_SERVER_DEV_MODE', false);
 }
 
+if (!defined('DOTSMESH_SERVER_LOG_TYPES')) {
+    define('DOTSMESH_SERVER_LOG_TYPES', []); // 'host-changes-subscribe', 'user-push-notification'
+}
+
 if (!defined('DOTSMESH_SERVER_DATA_DIR')) {
     http_response_code(503);
     echo 'The DOTSMESH_SERVER_DATA_DIR constant is required!';
@@ -58,6 +62,8 @@ if (array_search($requestHost, DOTSMESH_SERVER_HOSTS) === false) {
     echo 'Unsupported host!';
     exit;
 }
+
+define('DOTSMESH_SERVER_HOST_INTERNAL', $requestHost);
 
 $app->enableErrorHandler(['logErrors' => true, 'displayErrors' => DOTSMESH_SERVER_DEV_MODE]);
 
