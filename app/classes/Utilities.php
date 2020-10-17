@@ -27,34 +27,33 @@ class Utilities
         } elseif ($method === 'GET') {
             curl_setopt($ch, CURLOPT_URL, $url . '?' . http_build_query($data));
         } else {
-            throw new \Exception();
+            throw new \Exception('Unsupported method (' . $method . ')!');
         }
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Dots Mesh Server'); // todo
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0); // temp
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0); // temp
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Dots Mesh Server');
+        if (DOTSMESH_SERVER_DEV_MODE) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        }
         curl_setopt($ch, CURLOPT_TIMEOUT, 20);
         $result = curl_exec($ch);
         $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         if ($httpCode === 200) {
-        } else {
-            $error = curl_error($ch);
-        }
-        curl_close($ch);
-        // echo '!!!!' . "\n";
-        // echo $result;
-        // exit;
-        $result = json_decode($result, true);
-        if (is_array($result)) {
-            if (isset($result['status'])) {
-                if ($result['status'] === 'ok') {
-                    return isset($result['result']) ? $result['result'] : null;
-                } else if ($result['status'] === 'error') {
+            curl_close($ch);
+            $resultData = json_decode($result, true);
+            if (is_array($resultData) && isset($resultData['status'])) {
+                if ($resultData['status'] === 'ok') {
+                    return isset($resultData['result']) ? $resultData['result'] : null;
+                } else if ($resultData['status'] === 'error') {
                     // todo error
                 }
             }
+            throw new \Exception('Response error: ' . $result);
+        } else {
+            $exceptionMessage = $httpCode . ', ' . curl_error($ch);
+            curl_close($ch);
+            throw new \Exception($exceptionMessage);
         }
-        // todo unknown error
     }
 
     static function parseID(string $id): ?array
