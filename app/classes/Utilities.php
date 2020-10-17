@@ -397,7 +397,7 @@ class Utilities
     static function unpack($value): array
     {
         $parts = explode(':', $value, 2);
-        return ['name' => $parts[0], 'value' => json_decode($parts[1], true)];
+        return ['name' => isset($parts[0], $parts[1]) ? $parts[0] : null, 'value' => isset($parts[1]) ? json_decode($parts[1], true) : null];
     }
 
     static function getChanges(int $age, array $keys)
