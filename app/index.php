@@ -20,7 +20,6 @@ k/ - property keys
  */
 
 use BearFramework\App;
-use Minishlink\WebPush\VAPID;
 use X\API;
 use X\API\EndpointError;
 use X\Utilities;
@@ -81,25 +80,6 @@ $app->classes
 $app->routes
     ->add('/', function (App\Request $request) use ($app, $requestHost) {
         if ($request->query->exists('host')) {
-            if ($request->query->exists('pushkey')) {
-                if (!$app->data->exists('vapidpublic')) {
-                    $keys = VAPID::createVapidKeys();
-                    $app->data->setValue('vapidpublic', $keys['publicKey']);
-                    $app->data->setValue('vapidprivate', $keys['privateKey']);
-                }
-                $value = (string) $app->data->getValue('vapidpublic');
-                $response = new App\Response($value);
-                $response->headers->set($response->headers->make('Content-Type', 'text/plain'));
-                $response->headers->set($response->headers->make('Access-Control-Allow-Origin', '*'));
-                $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
-                return $response;
-                // } elseif ($request->query->exists('about')) {
-                //     $data = ['version' => '0.1.0-dev'];
-                //     $response = new App\Response\JSON(json_encode($data));
-                //     $response->headers->set($response->headers->make('Access-Control-Allow-Origin', '*'));
-                //     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
-                //     return $response;
-            }
             if ($request->query->exists('admin')) {
                 $hasAPISecret = defined('DOTSMESH_SERVER_ADMIN_API_SECRET') && strlen(DOTSMESH_SERVER_ADMIN_API_SECRET) > 0;
                 if (!$hasAPISecret) {
@@ -236,7 +216,8 @@ $app->routes
                             'host.validatePropertyID' => API\Endpoints\HostValidatePropertyID::class,
                             'host.changes.get' => API\Endpoints\HostChangesGet::class,
                             'host.changes.notify' => API\Endpoints\HostChangesNotify::class,
-                            'host.changes.subscription' => API\Endpoints\HostChangesSubscription::class
+                            'host.changes.subscription' => API\Endpoints\HostChangesSubscription::class,
+                            'utilities.getPushKeys' => API\Endpoints\UtilitiesGetPushKeys::class
                         ];
                         $method = $requestData['method'];
                         if (isset($methods[$method])) {
