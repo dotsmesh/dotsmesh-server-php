@@ -50,12 +50,22 @@ class GroupEndpoint extends Endpoint
         return $id;
     }
 
-    protected function hasMemberID()
+    /**
+     * 
+     * @return boolean
+     */
+    protected function hasMemberID(): bool
     {
         return $this->hasOption('memberID');
     }
 
-    protected function requireValidMemberID(string $groupID, bool $allowNotApproved = false)
+    /**
+     * 
+     * @param string $groupID
+     * @param boolean $allowNotApproved
+     * @return string
+     */
+    protected function requireValidMemberID(string $groupID, bool $allowNotApproved = false): string
     {
         $app = App::get();
         $memberID = $this->getOption('memberID', ['notEmptyString']);
@@ -71,21 +81,31 @@ class GroupEndpoint extends Endpoint
         throw new EndpointError('invalidMemberID', 'invalidMemberID');
     }
 
-    protected function getAccessKey()
+    /**
+     * 
+     * @return string
+     */
+    protected function getAccessKey(): string
     {
         return Utilities::getHash('SHA-512', $this->getOption('accessKey', ['notEmptyString']));
     }
 
-    protected function requireValidAccessKey(string $groupID, string $memberID)
+    /**
+     * 
+     * @param string $groupID
+     * @param string $memberID
+     * @return boolean Return TRUE if the member is administrator, FALSE otherwise.
+     */
+    protected function requireValidAccessKey(string $groupID, string $memberID): bool
     {
         $app = App::get();
         $dataPrefix = $this->getDataPrefix($groupID);
         $hashedAccessKey = $this->getAccessKey();
         $data = $app->data->getValue($dataPrefix . 'f/' . $memberID);
         if ($data !== null) {
-            $data = json_decode($data, true);
-            if ($data[0] === $hashedAccessKey) {
-                return (int) $data[1];
+            $data = self::parseAccessKeyData($data);
+            if (is_array($data) && $data['k'] === $hashedAccessKey) {
+                return (int) $data['a'] > 0;
             }
         }
         throw new EndpointError('invalidAccessKey', 'The access key provided is not valid!');
@@ -99,7 +119,12 @@ class GroupEndpoint extends Endpoint
         // }
     }
 
-    protected function requireValidInvitationAccessKey(string $groupID)
+    /**
+     * 
+     * @param string $groupID
+     * @return string
+     */
+    protected function requireValidInvitationAccessKey(string $groupID): string
     {
         $app = App::get();
         $dataPrefix = $this->getDataPrefix($groupID);
@@ -107,7 +132,7 @@ class GroupEndpoint extends Endpoint
         $invitationDataKey = $dataPrefix . 'd/p/i/' . md5($hashedAccessKey);
         $data = $app->data->getValue($invitationDataKey);
         if ($data !== null) {
-            $data = json_decode($data, true);
+            $data = self::parseInvitationData($data);
             if (is_array($data) && isset($data['a']) && $data['a'] === $hashedAccessKey) {
                 return $hashedAccessKey;
             }
@@ -115,14 +140,56 @@ class GroupEndpoint extends Endpoint
         throw new EndpointError('invalidAccessKey', 'The access key provided is not valid!');
     }
 
+    /**
+     * 
+     * @param string $data
+     * @return array|null
+     */
+    protected static function parseAccessKeyData(string $data): ?array
+    {
+        if (substr($data, 0, 1) === '[') { // Old format used in <= v1.1
+            $data = json_decode($data, true);
+            if (is_array($data)) {
+                return [
+                    'k' => $data[0], // key (string)
+                    'a' => $data[1] // is administrator (int)
+                ];
+            }
+        } else {
+            $data = Utilities::unpack($data);
+            if ($data['name'] === 'q') {
+                $value = $data['value'];
+                return [
+                    'k' => $value[0], // key (string)
+                    'a' => $value[1] // is administrator (int)
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 
+     * @param string $groupID
+     * @param string $memberID
+     * @param string $accessKey
+     * @param boolean $isAdministator
+     * @return void
+     */
     protected function addAccessKey(string $groupID,  string $memberID, string $accessKey, bool $isAdministator = false)
     {
         // $accessKey must be hashed on the client
         $app = App::get();
         $dataPrefix = $this->getDataPrefix($groupID);
-        $app->data->setValue($dataPrefix . 'f/' . $memberID, json_encode([$accessKey, (int) $isAdministator]));
+        $app->data->setValue($dataPrefix . 'f/' . $memberID, Utilities::pack('q', [$accessKey, (int) $isAdministator]));
     }
 
+    /**
+     * 
+     * @param string $groupID
+     * @param string $memberID
+     * @return void
+     */
     protected function removeAccessKey(string $groupID, string $memberID)
     {
         $app = App::get();
@@ -130,6 +197,15 @@ class GroupEndpoint extends Endpoint
         $app->data->delete($dataPrefix . 'f/' . $memberID);
     }
 
+    /**
+     * 
+     * @param string $type
+     * @param string $groupID
+     * @param string $context
+     * @param string $name
+     * @param mixed $data
+     * @return void
+     */
     protected function addToGroupLog(string $type, string $groupID, string $context, string $name, $data = null)
     {
         $app = App::get();
@@ -139,6 +215,15 @@ class GroupEndpoint extends Endpoint
         $app->data->append($dataKey, Utilities::getDateID($milliseconds) . ':' . Utilities::pack($name, $data)  . "\n");
     }
 
+    /**
+     * 
+     * @param string $type
+     * @param string $groupID
+     * @param string $memberID
+     * @param string $name
+     * @param mixed $data
+     * @return void
+     */
     protected function addToMemberLog(string $type, string $groupID, string $memberID, string $name, $data = null)
     {
         $app = App::get();
@@ -148,6 +233,13 @@ class GroupEndpoint extends Endpoint
         $app->data->append($dataKey, Utilities::getDateID($milliseconds) . ':' . Utilities::pack($name, $data) . "\n");
     }
 
+    /**
+     * 
+     * @param string $groupID
+     * @param string $memberID
+     * @param string $postID
+     * @return boolean
+     */
     protected function isMemberPost(string $groupID, string $memberID, string $postID): bool
     {
         $app = App::get();
@@ -167,6 +259,32 @@ class GroupEndpoint extends Endpoint
         return false;
     }
 
+    /**
+     * 
+     * @param string $data
+     * @return array|null
+     */
+    protected static function parseInvitationData(string $data): ?array
+    {
+        if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+            return json_decode($data, true);
+        } else {
+            $data = Utilities::unpack($data);
+            if ($data['name'] === 't') {
+                return $data['value'];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 
+     * @param string $groupID
+     * @param string $memberID
+     * @param string $accessKey
+     * @param mixed $invitationData
+     * @return void
+     */
     protected function addInvitation(string $groupID, string $memberID, string $accessKey, $invitationData)
     {
         $app = App::get();
@@ -175,7 +293,7 @@ class GroupEndpoint extends Endpoint
         if ($app->data->exists($invitationDataKey)) {
             throw new EndpointError('keyAlreadyExists', 'keyAlreadyExists');
         }
-        $app->data->setValue($invitationDataKey, json_encode([
+        $app->data->setValue($invitationDataKey, Utilities::pack('t', [
             'a' => $accessKey,
             'd' => $invitationData,
             'm' => $memberID // the user that made it
@@ -183,6 +301,12 @@ class GroupEndpoint extends Endpoint
         $this->announceChanges($groupID, ['gi']);
     }
 
+    /**
+     * 
+     * @param string $groupID
+     * @param string $accessKey
+     * @return void
+     */
     protected function getInvitationData(string $groupID, string $accessKey)
     {
         $app = App::get();
@@ -190,7 +314,7 @@ class GroupEndpoint extends Endpoint
         $invitationDataKey = $dataPrefix . 'd/p/i/' . md5($accessKey);
         $invitationData = $app->data->getValue($invitationDataKey);
         if ($invitationData !== null) {
-            $invitationData = json_decode($invitationData, true);
+            $invitationData = self::parseInvitationData($invitationData);
             if (is_array($invitationData) && isset($invitationData['a']) && isset($invitationData['d']) && $invitationData['a'] === $accessKey) {
                 return $invitationData['d'];
             }
@@ -198,6 +322,12 @@ class GroupEndpoint extends Endpoint
         return null;
     }
 
+    /**
+     * 
+     * @param string $groupID
+     * @param string $accessKey
+     * @return void
+     */
     protected function deleteInvitation(string $groupID, string $accessKey)
     {
         $app = App::get();
@@ -207,6 +337,13 @@ class GroupEndpoint extends Endpoint
         $this->announceChanges($groupID, ['gi']);
     }
 
+    /**
+     * 
+     * @param string $groupID
+     * @param string $memberID
+     * @param string $logName
+     * @return void
+     */
     protected function deleteMember(string $groupID, string $memberID, string $logName = '2')
     {
         $app = App::get();
@@ -235,9 +372,14 @@ class GroupEndpoint extends Endpoint
         if (!empty($changeKeys)) {
             $this->announceChanges($groupID, $changeKeys);
         }
-        return true;
     }
 
+    /**
+     * 
+     * @param string $groupID
+     * @param array $keys
+     * @return void
+     */
     protected function announceChanges(string $groupID, array $keys)
     {
         if (empty($keys)) {
@@ -247,6 +389,6 @@ class GroupEndpoint extends Endpoint
         foreach ($keys as $key) {
             $hashedKeys[] = Utilities::getHash('SHA-512-10', $groupID . '$' . $key);
         }
-        Utilities::announceChanges($groupID, $hashedKeys);
+        Utilities::announceChanges($hashedKeys);
     }
 }

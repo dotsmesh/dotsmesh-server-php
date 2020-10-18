@@ -8,24 +8,24 @@
 
 namespace X\API\Endpoints;
 
-use BearFramework\App;
 use X\API\UserEndpoint;
 
 class UserSetPushSubscription extends UserEndpoint
 {
     public function run(): string
     {
-        $app = App::get();
-
         $userID = $this->requireValidUserID();
         $session = $this->requireValidSessionKey($userID);
         $pushSubscription = $this->getArgument('pushSubscription', ['string']);
-        $sessionDataKey = $session['dataKey'];
 
-        $data = json_decode($app->data->getValue($sessionDataKey), true);
-        if ((isset($data['p']) && $data['p'] !== $pushSubscription) || !isset($data['p'])) {
-            $data['p'] = $pushSubscription;
-            $app->data->setValue($sessionDataKey, json_encode($data));
+        $sessionKey = $session['key'];
+
+        $data = $this->getSessionData($userID, $sessionKey);
+        if (is_array($data)) {
+            if ((isset($data['p']) && $data['p'] !== $pushSubscription) || !isset($data['p'])) {
+                $data['p'] = $pushSubscription;
+                $this->setSessionData($userID, $sessionKey, $data);
+            }
         }
 
         return 'ok';

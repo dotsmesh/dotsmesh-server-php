@@ -11,9 +11,8 @@ use X\Utilities;
 // Utilities::addPropertyKey($host, 'u');
 // Utilities::addPropertyKey($host, 'g');
 
-
-$propertiesList = Utilities::getPropertiesList($host);
-$propertiesKeys = Utilities::getPropertiesKeys($host);
+$propertiesList = Utilities::getPropertiesList();
+$propertiesKeys = Utilities::getPropertyKeys();
 
 $users = [];
 $groups = [];

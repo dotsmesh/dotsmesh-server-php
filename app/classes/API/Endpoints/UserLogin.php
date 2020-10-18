@@ -43,14 +43,13 @@ class UserLogin extends UserEndpoint
                 foreach ($list as $item) {
                     $app->data->delete($item->key);
                 }
-                $sessionDataKey = $dataPrefix . 'e/' . md5($sessionKeyHash);
-                if (!$app->data->exists($sessionDataKey)) {
-                    $app->data->setValue($sessionDataKey, json_encode([
+                if ($this->getSessionData($userID, $sessionKeyHash) === null) {
+                    $this->setSessionData($userID, $sessionKeyHash, [
                         's' => $sessionKeyHash,
                         'c' => time(),
                         'd' => $sessionData,
                         'p' => $pushSubscription
-                    ]));
+                    ]);
                     return [
                         'status' => 'ok',
                         'authData' => $authData['data'],

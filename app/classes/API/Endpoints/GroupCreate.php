@@ -20,11 +20,9 @@ class GroupCreate extends GroupEndpoint
         $app = App::get();
 
         $groupKey = strtolower($this->getArgument('groupKey', ['notEmptyString']));
-        //$initialData = $this->getArgument('initialData', ['array']);
         $memberID = $this->getArgument('memberID', ['notEmptyString']); // validate
         $accessKey = $this->getArgument('accessKey', ['notEmptyString']);
         $memberData = $this->getArgument('memberData', ['notEmptyString']);
-        //$sharedData = $this->getArgument('sharedData', ['array']);
 
         if (!Utilities::validatePropertyKey($groupKey, 'g')) {
             throw new EndpointError('invalidGroupKey', 'invalidGroupKey');
@@ -37,13 +35,7 @@ class GroupCreate extends GroupEndpoint
             $resultCode = Utilities::createProperty($groupID, 'g', $groupKey);
             if ($resultCode === 1) {
                 $dataPrefix = $this->getDataPrefix($groupID);
-                // foreach ($initialData as $dataKey => $dataValue) {
-                //     $app->data->setValue($dataPrefix . $dataKey, $dataValue);
-                // }
                 $app->data->setValue($dataPrefix . 'd/s/m/a/' . $memberID . '/a', Utilities::pack('y', [$memberData, Utilities::getDateID(Utilities::getMilliseconds())]));
-                // foreach ($sharedData as $key => $value) {
-                //     $app->data->setValue($dataPrefix . 'd/s/m/a/' . $memberID . '/d/' . $key, $value);
-                // }
                 $this->addAccessKey($groupID, $memberID, $accessKey, true);
                 $this->addToGroupLog('s', $groupID, 'm', 0, $memberID);
                 $this->addToMemberLog('s', $groupID, $memberID, '0');

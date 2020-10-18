@@ -18,7 +18,7 @@ class UserChangesAnnounce extends UserEndpoint
         $userID = $this->requireValidUserID();
         $this->requireValidSessionKey($userID);
         $keys = $this->getArgument('keys', ['array']);
-        Utilities::announceChanges($userID, $keys);
+        Utilities::announceChanges($keys);
         return 'ok';
     }
 }

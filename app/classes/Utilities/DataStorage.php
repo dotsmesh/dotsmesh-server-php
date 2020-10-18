@@ -14,16 +14,29 @@ use InvalidArgumentException;
 class DataStorage
 {
 
-
+    /**
+     * 
+     * @var string
+     */
     private $dataKeyPrefix = null;
+
     /**
      * 
      * @var \BearFramework\App;
      */
     private $app = null;
 
+    /**
+     * 
+     * @var boolean
+     */
     private $readOnly = false;
 
+    /**
+     * 
+     * @param string $dataKeyPrefix
+     * @param boolean $readOnly
+     */
     public function __construct(string $dataKeyPrefix, bool $readOnly)
     {
         $this->dataKeyPrefix = $dataKeyPrefix;
@@ -31,7 +44,12 @@ class DataStorage
         $this->readOnly = $readOnly;
     }
 
-    public function execute($commands): array
+    /**
+     * 
+     * @param array $commands
+     * @return array
+     */
+    public function execute(array $commands): array
     {
         $dataKeyPrefixLength = strlen($this->dataKeyPrefix);
         $dataRepository = $this->app->data;

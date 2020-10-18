@@ -39,7 +39,7 @@ class UserDataStorage extends UserEndpoint
             $app = App::get();
             $app->data->addEventListener('itemChange', function (\BearFramework\App\Data\ItemChangeEventDetails $details) use ($userID, $dataPrefix) {
                 if ($details->key === $dataPrefix . 'p/o/h') {
-                    Utilities::updateChangesObserver($userID);
+                    Utilities::updateChangesSubscriptions($userID);
                 }
             });
         } else {

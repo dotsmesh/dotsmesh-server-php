@@ -27,7 +27,6 @@ class GroupDataStorage extends GroupEndpoint
             $this->requireValidInvitationAccessKey($groupID);
             $isAdministrator = false;
         }
-        //echo (int)$isAdministrator;exit;
 
         $type = $this->getArgument('type', ['notEmptyString']);
         $commands = $this->getArgument('commands', ['array']);

@@ -8,7 +8,6 @@
 
 namespace X\API\Endpoints;
 
-use BearFramework\App;
 use X\API\UserEndpoint;
 
 class UserLogout extends UserEndpoint
@@ -18,8 +17,7 @@ class UserLogout extends UserEndpoint
         $userID = $this->requireValidUserID();
         $session = $this->requireValidSessionKey($userID);
 
-        $app = App::get();
-        $app->data->delete($session['dataKey']);
+        $this->deleteSessionData($userID, $session['key']);
 
         return 'ok';
     }

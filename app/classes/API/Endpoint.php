@@ -50,16 +50,34 @@ class Endpoint
         return $this->getValue($this->args, $key,  $types);
     }
 
+    /**
+     * 
+     * @param string $key
+     * @param array $types
+     * @return mixed
+     */
     protected function getOption(string $key, array $types)
     {
         return $this->getValue($this->options, $key,  $types);
     }
 
+    /**
+     * 
+     * @param string $key
+     * @return boolean
+     */
     protected function hasOption(string $key): bool
     {
         return isset($this->options[$key]);
     }
 
+    /**
+     * 
+     * @param array $values
+     * @param string $key
+     * @param array $types
+     * @return mixed
+     */
     private function getValue(array $values, string $key, array $types)
     {
         if (!array_key_exists($key, $values)) {
@@ -92,6 +110,12 @@ class Endpoint
         throw new EndpointError('invalidArgument', 'The ' . $key . ' property must be of type ' . implode('|', $types) . '!');
     }
 
+    /**
+     * Returns the data prefix for the property specified.
+     * 
+     * @param string $id
+     * @return string
+     */
     protected function getDataPrefix(string $id): string
     {
         return Utilities::getPropertyDataPrefix($id);

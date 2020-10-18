@@ -16,7 +16,6 @@ class HostValidatePropertyID extends Endpoint
     public function run()
     {
         $id = $this->getArgument('id', ['notEmptyString']);
-        //$context = $this->getArgument('context', ['notEmptyString']);
 
         if (!Utilities::isPropertyID($id)) {
             return 'invalid';

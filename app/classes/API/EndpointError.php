@@ -11,9 +11,23 @@ namespace X\API;
 class EndpointError extends \Error
 {
 
+    /**
+     * 
+     * @var string
+     */
     public $code = null;
+
+    /**
+     * 
+     * @var string
+     */
     public $message = null;
 
+    /**
+     * 
+     * @param string $code
+     * @param string $message
+     */
     public function __construct(string $code, string $message)
     {
         $this->code = $code;

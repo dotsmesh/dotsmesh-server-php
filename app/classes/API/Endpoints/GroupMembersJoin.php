@@ -23,7 +23,6 @@ class GroupMembersJoin extends GroupEndpoint
 
         $memberID = $this->getArgument('memberID', ['notEmptyString']); // todo validate
         $newAccessKey = $this->getArgument('newAccessKey', ['notEmptyString']);
-        //$sharedData = $this->getArgument('sharedData', ['array']);
 
         $dataPrefix = $this->getDataPrefix($groupID);
 
@@ -41,9 +40,6 @@ class GroupMembersJoin extends GroupEndpoint
                     $this->addToGroupLog('s', $groupID, 'm', '0', $memberID);
                     $this->addToMemberLog('s', $groupID, $memberID, '0');
                 }
-                // foreach ($sharedData as $key => $value) {
-                //     $app->data->setValue($dataPrefix . 'd/s/m/a/' . $memberID . '/d/' . $key, $value);
-                // }
                 $this->deleteInvitation($groupID, $accessKey);
                 $this->addToGroupLog('p', $groupID, 'i', 7, [$accessKey, $memberID]);
                 $this->addAccessKey($groupID, $memberID, $newAccessKey);
@@ -58,9 +54,6 @@ class GroupMembersJoin extends GroupEndpoint
                 $app->data->setValue($memberDataKey, Utilities::pack('z', [$data['m'], $memberData, Utilities::getDateID(Utilities::getMilliseconds())]));
                 $this->addToGroupLog('s', $groupID, 'm', '0', $memberID);
             }
-            // foreach ($sharedData as $key => $value) {
-            //     $app->data->setValue($dataPrefix . 'd/s/m/p/' . $memberID . '/d/' . $key, $value);
-            // }
             $this->addToGroupLog('p', $groupID, 'i', 9, [$accessKey, $memberID]);
             $this->addAccessKey($groupID, $memberID, $newAccessKey);
             $this->announceChanges($groupID, ['gm', 'gmp', 'gm/' . $memberID . '/s']);

@@ -9,11 +9,11 @@
 /**
 Host data structure
 a/ - admin
-a/p/ - admin password
+a/pd - admin password
 p/ - properties
 c/ - changes
 c/l - changes log
-c/s - changes subscribers
+c/s/k - changes subscribers
 c/o/h/[host] - changes subscribed host data
 c/o/u/[id] - changes subscribed user data
 k/ - property keys
@@ -29,7 +29,11 @@ if (!defined('DOTSMESH_SERVER_DEV_MODE')) {
 }
 
 if (!defined('DOTSMESH_SERVER_LOG_TYPES')) {
-    define('DOTSMESH_SERVER_LOG_TYPES', []); // 'host-changes-subscribe', 'user-push-notification'
+    define('DOTSMESH_SERVER_LOG_TYPES', []); // 'request', 'user-push-notification', 'host-changes-notify', 'host-changes-subscription'
+}
+
+if (!defined('DOTSMESH_SERVER_ID_KEY_MIN_LENGTH')) {
+    define('DOTSMESH_SERVER_ID_KEY_MIN_LENGTH', 1);
 }
 
 if (!defined('DOTSMESH_SERVER_DATA_DIR')) {
@@ -54,19 +58,25 @@ require __DIR__ . '/../vendor/autoload.php';
 
 $app = new App();
 
-$requestHost = strtolower(substr($app->request->host, 9)); // remove dotsmesh. // todo validate
+$host = $app->request->host;
+$host = substr($host, 0, 9) === 'dotsmesh.' ? strtolower(substr($host, 9)) : null;
 
-if (array_search($requestHost, DOTSMESH_SERVER_HOSTS) === false) {
+if (array_search($host, DOTSMESH_SERVER_HOSTS) === false) {
     http_response_code(503);
     echo 'Unsupported host!';
     exit;
 }
 
-define('DOTSMESH_SERVER_HOST_INTERNAL', $requestHost);
+define('DOTSMESH_SERVER_HOST_INTERNAL', $host);
 
 $app->enableErrorHandler(['logErrors' => true, 'displayErrors' => DOTSMESH_SERVER_DEV_MODE]);
 
-$app->data->useFileDriver(DOTSMESH_SERVER_DATA_DIR);
+$dataDir = DOTSMESH_SERVER_DATA_DIR . '/' . md5($host);
+if (!is_dir($dataDir)) {
+    mkdir($dataDir);
+}
+$app->data->useFileDriver($dataDir);
+
 $app->logs->useFileLogger(DOTSMESH_SERVER_LOGS_DIR);
 
 $app->addons
@@ -74,99 +84,51 @@ $app->addons
 
 $app->classes
     ->add('X\API\*', __DIR__ . '/classes/API/*.php')
+    ->add('X\DataMigration', __DIR__ . '/classes/DataMigration.php')
     ->add('X\Utilities', __DIR__ . '/classes/Utilities.php')
     ->add('X\Utilities\*', __DIR__ . '/classes/Utilities/*.php');
 
 $app->routes
-    ->add('/', function (App\Request $request) use ($app, $requestHost) {
+    ->add('/', function (App\Request $request) use ($app, $host) {
         if ($request->query->exists('host')) {
             if ($request->query->exists('admin')) {
                 $hasAPISecret = defined('DOTSMESH_SERVER_ADMIN_API_SECRET') && strlen(DOTSMESH_SERVER_ADMIN_API_SECRET) > 0;
                 if (!$hasAPISecret) {
                     $hasLoggedInAdmin = Utilities::hasLoggedInAdmin($request, true);
-                    $templateHTML = Utilities::getHTMLFileContent('admin-template', ['host' => $requestHost, 'hasLoggedInAdmin' => $hasLoggedInAdmin]);
+                    $templateHTML = Utilities::getHTMLFileContent('admin-template', ['host' => $host, 'hasLoggedInAdmin' => $hasLoggedInAdmin]);
                     if ($hasLoggedInAdmin) {
-                        $contentHTML = Utilities::getHTMLFileContent('admin-dashboard', ['host' => $requestHost]);
+                        $contentHTML = Utilities::getHTMLFileContent('admin-dashboard', ['host' => $host]);
                     } else {
-                        $contentHTML = Utilities::getHTMLFileContent('admin-home', ['host' => $requestHost]);
+                        $contentHTML = Utilities::getHTMLFileContent('admin-home', ['host' => $host]);
                     }
                     $response = new App\Response\HTML(str_replace('{{content}}', $contentHTML, $templateHTML));
                     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
                     $response->headers->set($response->headers->make('Cache-Control', 'no-cache, no-store, must-revalidate, private, max-age=0'));
                     return $response;
                 }
+            } elseif ($request->query->exists('setadminpassword')) {
+                if (DOTSMESH_SERVER_DEV_MODE) {
+                    Utilities::setAdminPassword($request->query->getValue('setadminpassword'));
+                    $response = new App\Response\Text('ok');
+                    $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                    return $response;
+                }
+            } elseif ($request->query->exists('viewdata')) {
+                if (DOTSMESH_SERVER_DEV_MODE) {
+                    $keys = [];
+                    $list = $app->data->getList()->sliceProperties(['key']);
+                    foreach ($list as $item) {
+                        $keys[] = $item->key;
+                    }
+                    $response = new App\Response\Text(implode("\n", $keys));
+                    $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                    return $response;
+                }
+            } elseif ($request->query->exists('migratedata')) {
+                $response = new App\Response\Text(\X\DataMigration::migrate());
+                $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                return $response;
             }
-            //  elseif ($request->query->exists('setadminpassword')) {
-            //     Utilities::setAdminPassword($requestHost, $request->query->getValue('setadminpassword'));
-            //     $response = new App\Response('ok');
-            //     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
-            //     return $response;
-            // }
-            // if ($request->query->exists('viewdata')) {
-            //     $keys = [];
-            //     $list = $app->data->getList()->sliceProperties(['key']);
-            //     foreach ($list as $item) {
-            //         $keys[] = $item->key;
-            //     }
-            //     print_r($keys);
-            //     exit;
-            // }
-            // if ($request->query->exists('update4')) {
-            //     // $keysToRename = [];
-            //     // $keysToDelete = [];
-            //     // $list = $app->data->getList()->sliceProperties(['key']);
-            //     // foreach ($list as $item) {
-
-            //     //     $key = $item->key;
-            //     //     // $parts = explode('/', $key);
-
-            //     //     // if ($parts[0] === 'p' && ($parts[2] === 'p' || $parts[2] === 's')) {
-            //     //     //     $parts[2] = 'd/' . $parts[2];
-            //     //     //     $newKey = implode('/', $parts);
-            //     //     //     $keysToRename[] = [$key, $newKey];
-            //     //     // }
-            //     //     if (substr($key, -4) === '/d/g') {
-            //     //         $keysToDelete[] = $key;
-            //     //     }
-            //     //     if (substr($key, -12) === '/d/profile/d') {
-            //     //         $keysToDelete[] = $key;
-            //     //     }
-            //     // }
-            //     // print_r($keysToRename);
-            //     // print_r($keysToDelete);
-            //     // if ($app->request->query->exists('do')) {
-            //     //     foreach ($keysToRename as $key) {
-            //     //         $app->logs->log('update3', 'rename ' . $key[0] . ' - ' . $key[1]);
-            //     //         $app->data->rename($key[0], $key[1]);
-            //     //     }
-            //     //     foreach ($keysToDelete as $key) {
-            //     //         $app->logs->log('update3', 'delete ' . $key);
-            //     //         $app->data->delete($key);
-            //     //     }
-            //     //     echo 'Done!';
-            //     // }
-
-            //     $propertiesIDs = scandir($app->data->getFilename('p'));
-            //     $result = [];
-            //     foreach ($propertiesIDs as $propertyID) {
-            //         if ($propertyID !== '.' && $propertyID !== '..') {
-            //             $dataKey = 'p/' . $propertyID . '/x';
-            //             $data = $app->data->getValue($dataKey);
-            //             if ($data !== null) {
-            //                 $data = json_decode($data, true);
-            //                 print_r($data);
-            //                 if ($data['t'] === 'group') {
-            //                     $data['t'] = 'g';
-            //                 } else if ($data['t'] === 'user') {
-            //                     $data['t'] = 'u';
-            //                 }
-            //                 $app->data->setValue($dataKey, json_encode($data));
-            //             }
-            //         }
-            //     }
-
-            //     exit;
-            // }
         }
     })
     ->add('OPTIONS /', function (App\Request $request) {
@@ -181,7 +143,7 @@ $app->routes
             return $response;
         }
     })
-    ->add('POST /', function (App\Request $request) use ($app, $requestHost) {
+    ->add('POST /', function (App\Request $request) {
         if ($request->query->exists('host')) {
             if ($request->query->exists('api')) {
                 $response = null;
@@ -221,9 +183,16 @@ $app->routes
                         ];
                         $method = $requestData['method'];
                         if (isset($methods[$method])) {
-                            //$app->logs->log('request', $method);
+                            $requestLogEnabled = Utilities::isLogEnabled('request');
                             $class = $methods[$method];
+                            if ($requestLogEnabled) {
+                                $startTime = microtime(true);
+                            }
                             $result = (new $class($requestData['args'], $requestData['options']))->run();
+                            if ($requestLogEnabled) {
+                                $totalTime = microtime(true) - $startTime;
+                                Utilities::log('request', $method . ' ' . $totalTime);
+                            }
                             $response = new App\Response\JSON(json_encode([
                                 'status' => 'ok',
                                 'result' => $result
@@ -277,7 +246,7 @@ $app->routes
                                 // todo rate limit
                                 $response = new App\Response\JSON();
                                 $password = isset($args['password']) && is_string($args['password']) ? $args['password'] : '';
-                                $response->content = Utilities::loginAdmin($requestHost, $password, $response) ? 'ok' : 'invalid';
+                                $response->content = Utilities::loginAdmin($password, $response) ? 'ok' : 'invalid';
                             }
                             break;
                         case 'logout':
@@ -291,7 +260,7 @@ $app->routes
                             if ($isAuthenticatedRequest()) {
                                 $response = new App\Response\JSON();
                                 $type = isset($args['type']) && is_string($args['type']) ? $args['type'] : '';
-                                $key = Utilities::createPropertyKey($requestHost, $type);
+                                $key = Utilities::createPropertyKey($type);
                                 $response->content = json_encode(['status' => 'ok', 'result' => ['key' => $key]]);
                             }
                             break;
@@ -307,7 +276,7 @@ $app->routes
                             if ($isAuthenticatedRequest()) {
                                 $response = new App\Response\JSON();
                                 $key = isset($args['key']) && is_string($args['key']) ? $args['key'] : '';
-                                $details = Utilities::getKeyDetails($key);
+                                $details = Utilities::getPropertyKeyDetails($key);
                                 $response->content = json_encode(['status' => 'ok', 'result' => $details]);
                             }
                             break;

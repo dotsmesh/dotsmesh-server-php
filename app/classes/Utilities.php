@@ -12,9 +12,37 @@ use BearFramework\App;
 
 class Utilities
 {
+    /**
+     * 
+     * @var integer
+     */
     static private $idCounter = 0;
+
+    /**
+     * 
+     * @var array
+     */
     static private $queuedPushNotifications = [];
 
+    /**
+     * 
+     * @var array
+     */
+    static private $cache = [];
+
+    /**
+     * 
+     * @var integer
+     */
+    static private $propertyIDKeyPartMaxLength = 60;
+
+    /**
+     * 
+     * @param string $method
+     * @param string $url
+     * @param array $data
+     * @return mixed
+     */
     static function makeServerRequest(string $method, string $url, array $data)
     {
         $ch = curl_init();
@@ -56,34 +84,71 @@ class Utilities
         }
     }
 
+    /**
+     * 
+     * @param string $id
+     * @return array|null
+     */
     static function parseID(string $id): ?array
     {
+        $cacheKey = 'id-' . $id;
+        if (array_key_exists($cacheKey, self::$cache)) {
+            return self::$cache[$cacheKey];
+        }
+        $result = null;
         $parts = explode('.', $id, 2);
         if (sizeof($parts) === 2) {
             $key = strtolower($parts[0]);
-            if (preg_match('/^[a-z0-9]$/', $key) === false) {
-                return null;
+            if (preg_match('/^[a-z0-9\-]$/', $key) !== false) {
+                $keyLength = strlen($key);
+                if (strlen(trim($key, '-')) === $keyLength) { // Cant start or end with "-"
+                    if ($keyLength >= 1 && $keyLength <= self::$propertyIDKeyPartMaxLength) {
+                        $host = strtolower($parts[1]);
+                        if (strlen($host) > 0 && filter_var('http://' . $host . '/', FILTER_VALIDATE_URL) !== false) {
+                            $result = [
+                                'host' => $host,
+                                'key' => $key
+                            ];
+                        }
+                    }
+                }
             }
-            $host = strtolower($parts[1]);
-            if (filter_var('http://' . $host . '/', FILTER_VALIDATE_URL) === false) {
-                return null;
-            }
-            return [
-                'host' => $host,
-                'key' => $key
-            ];
         }
-        return null;
+        self::$cache[$cacheKey] = $result;
+        return $result;
     }
 
+    /**
+     * 
+     * @param string $id
+     * @return string
+     */
     static function getPropertyDataPrefix(string $id): string
     {
-        return 'p/' . $id . '/';
+        $parts = self::parseID($id);
+        return 'p/' . $parts['key'] . '/';
     }
 
+    /**
+     * 
+     * @param string $id
+     * @param string $type
+     * @param string $propertyKey
+     * @return integer Returns 1 if success, 2 if property already exists
+     */
     static function createProperty(string $id, string $type, string $propertyKey): int
     {
         $id = strtolower($id);
+        $parts = self::parseID($id);
+        if ($parts === null) {
+            throw new \Exception('Invalid ID provided!');
+        }
+        if (DOTSMESH_SERVER_HOST_INTERNAL !== $parts['host']) {
+            throw new \Exception('The ID host does not match the app host!');
+        }
+        if (strlen($parts['key']) < DOTSMESH_SERVER_ID_KEY_MIN_LENGTH) {
+            throw new \Exception('The key part for the ID must be at least ' . DOTSMESH_SERVER_ID_KEY_MIN_LENGTH . ' characters!');
+        }
         if ($type === 'u' || $type === 'g') {
             $app = App::get();
             $lockKey = 'create-property-' . $id;
@@ -93,24 +158,48 @@ class Utilities
                 $app->locks->release($lockKey);
                 return 2; // exists
             }
-            $app->data->setValue($dataKeyPrefix . 'x', json_encode([
+            $app->data->setValue($dataKeyPrefix . 'x', self::pack('w', [
+                'i' => $id, // Added in v1.2
                 'd' => time(),
-                't' => $type,
-                //'k' => $propertyKey
+                't' => $type
             ]));
             self::setPropertyKeyPropertyID($propertyKey, $id);
             $app->locks->release($lockKey);
             return 1; // ok
         }
-        throw new \Exception();
+        throw new \Exception('Invalid type provided!');
     }
 
+    /**
+     * 
+     * @param string $data
+     * @return array|null
+     */
+    static function parsePropertyData(string $data): ?array
+    {
+        if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+            return json_decode($data, true);
+        } else {
+            $data = Utilities::unpack($data);
+            if ($data['name'] === 'w') {
+                return $data['value'];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 
+     * @param string $id
+     * @param string $type
+     * @return boolean
+     */
     static function propertyExists(string $id, string $type = null): bool
     {
         $app = App::get();
         $data = $app->data->getValue(self::getPropertyDataPrefix($id) . 'x');
         if ($data !== null) {
-            $data = json_decode($data, true);
+            $data = self::parsePropertyData($data);
             if (is_array($data) && isset($data['t']) && ($type === null || $data['t'] === $type)) {
                 return true;
             }
@@ -118,26 +207,46 @@ class Utilities
         return false;
     }
 
+    /**
+     * 
+     * @param string $id
+     * @return boolean
+     */
     static function userExists(string $id): bool
     {
         return self::propertyExists($id, 'u');
     }
 
+    /**
+     * 
+     * @param string $id
+     * @return boolean
+     */
     static function groupExists(string $id): bool
     {
         return self::propertyExists($id, 'g');
     }
 
-    static function getMilliseconds()
+    /**
+     * 
+     * @return int
+     */
+    static function getMilliseconds(): int
     {
         if (strlen(PHP_INT_MAX) <= 15) {
             throw new \Exception('Working with big ints is not available to this machine! Maybe update to 64 bits?');
         }
         $parts = explode(' ', microtime(false));
-        return (int) $parts[1] . str_pad(substr($parts[0], 2, 3), 3, '0', STR_PAD_LEFT);
+        return (int) ($parts[1] . str_pad(substr($parts[0], 2, 3), 3, '0', STR_PAD_LEFT));
     }
 
-    static function getDateID($milliseconds, $precision = 0) // 0 - milliseconds, 1 - seconds, 2 - days
+    /**
+     * 
+     * @param int $milliseconds
+     * @param int $precision
+     * @return string
+     */
+    static function getDateID(int $milliseconds, int $precision = 0): string // 0 - milliseconds, 1 - seconds, 2 - days
     {
         if ($precision === 0) {
             return str_pad(base_convert($milliseconds, 10, 36), 9, '0', STR_PAD_LEFT); // max Apr 22 5188
@@ -146,9 +255,14 @@ class Utilities
         } else if ($precision === 2) {
             return str_pad(base_convert(floor($milliseconds / 1000 / 86400), 10, 36), 4, '0', STR_PAD_LEFT); // max Aug 18 6568
         }
-        throw new \Exception('');
+        throw new \Exception('Unsupported precision!');
     }
 
+    /**
+     * 
+     * @param string $dateID
+     * @return integer
+     */
     static function parseDateID(string $dateID): int
     {
         $length = strlen($dateID);
@@ -159,9 +273,13 @@ class Utilities
         } else if ($length === 4) {
             return base_convert($dateID,  36, 10) * 1000 * 86400;
         }
-        throw new \Exception('');
+        throw new \Exception('Unsupported dateID format!');
     }
 
+    /**
+     * 
+     * @return string
+     */
     static function generateDateBasedID(): string // fixed length 16, must be the same on the client
     {
         self::$idCounter++;
@@ -169,6 +287,11 @@ class Utilities
         return self::getDateID(self::getMilliseconds()) . $temp . substr(base_convert(bin2hex(random_bytes(10)), 16, 36), 0, 7 - strlen($temp));
     }
 
+    /**
+     * 
+     * @param integer $length
+     * @return string
+     */
     static function generateRandomBase36String(int $length): string
     {
         $chars = array_flip(str_split('qwertyuiopasdfghjklzxcvbnm0123456789'));
@@ -179,6 +302,11 @@ class Utilities
         return implode($result);
     }
 
+    /**
+     * 
+     * @param integer $length
+     * @return string
+     */
     static function generateRandomBase62String(int $length): string
     {
         $chars = array_flip(str_split('qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM0123456789'));
@@ -189,6 +317,29 @@ class Utilities
         return implode($result);
     }
 
+    /**
+     * 
+     * @param string $data
+     * @return array|null
+     */
+    static function parseUserSessionData(string $data): ?array
+    {
+        if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+            return json_decode($data, true);
+        } else {
+            $data = Utilities::unpack($data);
+            if ($data['name'] === 'q') {
+                return $data['value'];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @return array
+     */
     static function getUserPushSubscriptions(string $userID): array
     {
         $app = App::get();
@@ -196,9 +347,9 @@ class Utilities
         $list = $app->data->getList()->filterBy('key', $dataPrefix . 'e/', 'startWith');
         $result = [];
         foreach ($list as $item) {
-            $value = json_decode($item->value, true);
-            if (isset($value['p']) && strlen($value['p']) > 0) {
-                $result[] = $value['p'];
+            $data = self::parseUserSessionData($item->value);
+            if (is_array($data) && isset($data['p']) && strlen($data['p']) > 0) {
+                $result[] = $data['p'];
             }
         }
         return $result;
@@ -242,7 +393,7 @@ class Utilities
                                 'privateKey' => $data[2]
                             ]
                         ]);
-                        $result = $webPush->sendOneNotification(\Minishlink\WebPush\Subscription::create($data[0]), $payload !== null ? json_encode($payload) : null);
+                        $result = $webPush->sendOneNotification(\Minishlink\WebPush\Subscription::create($data[0]), $payload !== null ? self::pack('', $payload) : null);
                         self::log('user-push-notification', $userID . ' ' . ($result->isSuccess() ? 'success' : 'fail') . ' ' . $result->getReason());
                         if ($result->isSubscriptionExpired()) {
                             //self::deleteUserPushSubscription($userID, $sessionID);
@@ -254,138 +405,197 @@ class Utilities
         self::$queuedPushNotifications = [];
     }
 
-    static function isAlphanumeric(string $value, int $maxLength): bool
-    {
-        return strlen($value) !== 0 && strlen($value) <= $maxLength && preg_match('/^[0-9a-z]*$/', $value) === 1;
-    }
-
-    static function isKey(string $value, int $maxLength): bool
-    {
-        return strlen($value) !== 0 && strlen($value) <= $maxLength && preg_match('/^[0-9a-z\-]*$/', $value) === 1 && strlen(trim($value . '-')) !== strlen($value);
-    }
-
+    /**
+     * 
+     * @param string $id
+     * @return boolean
+     */
     static function isPropertyID(string $id): bool
     {
         $data = self::parseID($id);
-        return $data !== null && Utilities::isKey($data['key'], 40) && strlen($data['key']) >= 3;
+        return $data !== null;
     }
 
-    static function createPropertyKey(string $host, string $type): string
+    /**
+     * 
+     * @param string $data
+     * @return array|null
+     */
+    static function parsePropertyKeyData(string $data): ?array
     {
-        if ($type === 'u' || $type === 'g') {
-            $app = App::get();
-            for ($i = 0; $i < 1000; $i++) {
-                $key = self::generateRandomBase36String(rand(11, 15)) . $type;
-                $dataKey = 'k/' . $host . '.' . $key;
-                if (!$app->data->exists($dataKey)) {
-                    $app->data->setValue($dataKey, json_encode(['d' => time()]));
-                    return $host . ':' . $key;
-                }
+        if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+            return json_decode($data, true);
+        } else {
+            $data = Utilities::unpack($data);
+            if ($data['name'] === 'e') {
+                return $data['value'];
             }
         }
-        throw new \Exception();
+        return null;
     }
 
+    /**
+     * 
+     * @param string $key
+     * @param array $data
+     * @return void
+     */
+    static function setPropertyKeyData(string $key, array $data): void
+    {
+        $app = App::get();
+        $app->data->setValue('k/' . $key, self::pack('e', $data));
+    }
+
+    /**
+     * 
+     * @param string $key
+     * @return array|null
+     */
+    static function getPropertyKeyData(string $key): ?array
+    {
+        $app = App::get();
+        $value = $app->data->getValue('k/' . $key);
+        return $value !== null ? self::parsePropertyKeyData($value) : null;
+    }
+
+    /**
+     * 
+     * @param string $type
+     * @return string
+     */
+    static function createPropertyKey(string $type): string
+    {
+        if ($type === 'u' || $type === 'g') {
+            for ($i = 0; $i < 1000; $i++) {
+                $key = self::generateRandomBase36String(rand(11, 15)) . $type;
+                if (self::getPropertyKeyData($key) === null) {
+                    self::setPropertyKeyData($key, ['d' => time()]);
+                    return DOTSMESH_SERVER_HOST_INTERNAL . ':' . $key;
+                }
+            }
+            throw new \Exception('Cannot create property key now!');
+        }
+        throw new \Exception('Invalid property type!');
+    }
+
+    /**
+     * 
+     * @param string $key
+     * @return array
+     */
+    static function parsePropertyKey(string $key): array
+    {
+        $parts = explode(':', $key, 2);
+        if (sizeof($parts) === 2 && $parts[0] === DOTSMESH_SERVER_HOST_INTERNAL && preg_match('/^[a-z0-9]$/', $parts[1]) !== false) {
+            return [
+                'host' => $parts[0],
+                'key' => $parts[1]
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * 
+     * @param string $key
+     * @param string $type
+     * @return boolean
+     */
     static function validatePropertyKey(string $key, string $type): bool
     {
         $key = strtolower($key);
         if (substr($key, -1) === $type) {
-            $app = App::get();
-            $dataKey = 'k/' . str_replace(':', '.', $key);
-            $value = $app->data->validate($dataKey) ? $app->data->getValue($dataKey) : null;
-            if ($value !== null) {
-                $data = json_decode($value, true);
+            $parts = self::parsePropertyKey($key);
+            if ($parts !== null) {
+                $data = self::getPropertyKeyData($parts['key']);
                 if (is_array($data) && isset($data['d']) && !isset($data['i'])) {
                     return true;
                 }
             }
         }
         return false;
-
-        // $result = self::makeServerManagerRequest('POST', DOTSMESH_SERVER_SERVER_MANAGER_URL . '?api&secret=' . DOTSMESH_SERVER_SERVER_MANAGER_SECRET, ['action' => 'validate', 'key' => $key, 'context' => $context, 'id' => $propertyID]);
-        // return $result === 'valid';
     }
 
+    /**
+     * 
+     * @param string $key
+     * @param string $id
+     * @return void
+     */
     static private function setPropertyKeyPropertyID(string $key, string $id): void
     {
         $key = strtolower($key);
-        $app = App::get();
-        $dataKey = 'k/' . str_replace(':', '.', $key);
-        $value = $app->data->getValue($dataKey);
-        if ($value !== null) {
-            $data = json_decode($value, true);
+        $parts = self::parsePropertyKey($key);
+        if ($parts !== null) {
+            $data = self::getPropertyKeyData($parts['key']);
             if (is_array($data) && isset($data['d']) && !isset($data['i'])) {
                 $data['i'] = $id;
-                $app->data->setValue($dataKey, json_encode($data));
+                self::setPropertyKeyData($parts['key'], $data);
             }
         }
     }
 
+    /**
+     * 
+     * @param string $key
+     * @return string
+     */
     static function deletePropertyKey(string $key): string
     {
         $key = strtolower($key);
         $app = App::get();
-        $dataKey = 'k/' . str_replace(':', '.', $key);
-        $value = $app->data->getValue($dataKey);
-        if ($value !== null) {
-            $data = json_decode($value, true);
+        $parts = self::parsePropertyKey($key);
+        if ($parts !== null) {
+            $data = self::getPropertyKeyData($parts['key']);
             if (is_array($data) && isset($data['d']) && !isset($data['i'])) { // prevent deleting used key
-                $app->data->delete($dataKey);
+                $app->data->delete('k/' . $parts['key']);
                 return 'success';
             } else {
                 return 'active';
             }
         }
         return 'notFound';
-
-        // $result = self::makeServerManagerRequest('POST', DOTSMESH_SERVER_SERVER_MANAGER_URL . '?api&secret=' . DOTSMESH_SERVER_SERVER_MANAGER_SECRET, ['action' => 'retire', 'key' => $key, 'id' => $propertyID]);
-        // return $result === 'ok';
-
-        //return;
-        // $dataKey = str_replace(':', '.', $invitationCode);
-        // $app = App::get();
-        // $data = $app->data->getValue('invitationcodes/active/' . $dataKey);
-        // if ($data !== null) {
-        //     $data = strlen($data) > 0 ? json_decode($data, true) : [];
-        //     $data['p'] = $property;
-        //     $app->data->setValue('invitationcodes/used/' . self::getDateID(self::getMilliseconds()) . '.' . $dataKey, json_encode($data));
-        //     $app->data->delete('invitationcodes/active/' . $dataKey);
-        // }
     }
 
-    static function getKeyDetails(string $key): ?array
+    /**
+     * 
+     * @param string $key
+     * @return array|null
+     */
+    static function getPropertyKeyDetails(string $key): ?array
     {
         $key = strtolower($key);
-        $app = App::get();
-        $dataKey = 'k/' . str_replace(':', '.', $key);
-        $value = $app->data->getValue($dataKey);
-        if ($value !== null) {
-            $data = json_decode($value, true);
-            return $data;
+        $parts = self::parsePropertyKey($key);
+        if ($parts !== null) {
+            return self::getPropertyKeyData($parts['key']);
         }
         return null;
     }
 
-    static function getPropertiesKeys(string $host): array
+    /**
+     * 
+     * @return array
+     */
+    static function getPropertyKeys(): array
     {
         $app = App::get();
         $list = $app->data->getList()->filterBy('key', 'k/', 'startWith');
         $result = [];
         foreach ($list as $item) {
-            $key = substr($item->key, 2);
-            $lastDotIndex = strrpos($key, '.');
-            $keyHost = substr($key, 0, $lastDotIndex);
-            if ($keyHost !== $host) {
-                continue;
-            }
-            $key = $keyHost . ':' . substr($key,  $lastDotIndex + 1);
-            $result[$key] = json_decode($item->value, true);
+            $key = DOTSMESH_SERVER_HOST_INTERNAL . ':' . substr($item->key, 2);
+            $result[$key] = self::parsePropertyKeyData($item->value);
             $result[$key]['t'] = substr($key, -1);
         }
         return $result;
     }
 
-    static function getHash($type, $value)
+    /**
+     * 
+     * @param string $type
+     * @param mixed $value
+     * @return string
+     */
+    static function getHash(string $type, $value): string
     {
         if ($type === 'SHA-512') {
             return '0:' . base64_encode(hash('sha512', $value, true));
@@ -394,20 +604,39 @@ class Utilities
         } else if ($type === 'SHA-512-10') {
             return '2' . substr(base64_encode(hash('sha512', $value, true)), 0, 9); // -1 because of the prefix
         }
+        throw new \Exception('Unsupported type!');
     }
 
+    /**
+     * 
+     * @param string $name
+     * @param string $value
+     * @return string
+     */
     static function pack(string $name, $value): string
     {
         return $name . ':' . json_encode($value);
     }
 
-    static function unpack($value): array
+    /**
+     * 
+     * @param string $value
+     * @return array
+     */
+    static function unpack(string $value): array
     {
         $parts = explode(':', $value, 2);
         return ['name' => isset($parts[0], $parts[1]) ? $parts[0] : null, 'value' => isset($parts[1]) ? json_decode($parts[1], true) : null];
     }
 
-    static function getChanges(int $age, array $keys)
+    /**
+     * Parses the changes log and returns a list of the changed keys for the time specified.
+     * 
+     * @param integer $age
+     * @param array $keys
+     * @return array
+     */
+    static function getChanges(int $age, array $keys): array
     {
         $app = App::get();
         $daysCount = ceil($age / 86400);
@@ -454,75 +683,254 @@ class Utilities
         return $result;
     }
 
-    static function announceChanges(string $propertyID, array $keys)
+    /**
+     * Sends notifications to the hosts that have subscribed to the keys specified.
+     * 
+     * @param array $keys
+     * @return void
+     */
+    static function announceChanges(array $keys)
     {
-        $parsedID = self::parseID($propertyID);
-        if ($parsedID !== null) {
-            $app = App::get();
-            $log = '';
-            foreach ($keys as $key) {
-                $log .= time() . ":" . $key . "\n";
-            }
-            $app->data->append('c/l/' . self::getDateID(self::getMilliseconds(), 2), $log);
-            $keysDataKey = 'c/s/k';
-            $data = $app->data->getValue($keysDataKey);
-            $data = $data === null ? [] : json_decode($data, true);
-            $hostsToNotify = [];
-            foreach ($keys as $key) {
-                if (isset($data[$key])) {
-                    foreach ($data[$key] as $hostToNotify) {
-                        if (!isset($hostsToNotify[$hostToNotify])) {
-                            $hostsToNotify[$hostToNotify] = [];
-                        }
-                        $hostsToNotify[$hostToNotify][] = $key;
+        $app = App::get();
+        $log = '';
+        foreach ($keys as $key) {
+            $log .= time() . ":" . $key . "\n";
+        }
+        $app->data->append('c/l/' . self::getDateID(self::getMilliseconds(), 2), $log);
+        $data = self::getChangesSubscribersData();
+        $hostsToNotify = [];
+        foreach ($keys as $key) {
+            if (isset($data[$key])) {
+                foreach ($data[$key] as $hostToNotify) {
+                    if (!isset($hostsToNotify[$hostToNotify])) {
+                        $hostsToNotify[$hostToNotify] = [];
                     }
+                    $hostsToNotify[$hostToNotify][] = $key;
                 }
             }
-            foreach ($hostsToNotify as $hostToNotify => $changedKeys) {
-                $args = [
-                    'host' => $parsedID['host'], // the property host
-                    'keys' => $changedKeys
-                ];
-                $result = self::makeServerRequest('POST', 'https://dotsmesh.' . $hostToNotify . '/?host&api', ['method' => 'host.changes.notify', 'args' => $args, 'options' => []]);
-                $app->logs->log('notify', $hostToNotify . ' - ' . $hostToNotify . ' - ' . print_r($result, true));
+        }
+        foreach ($hostsToNotify as $hostToNotify => $changedKeys) {
+            $args = [
+                'host' => DOTSMESH_SERVER_HOST_INTERNAL,
+                'keys' => $changedKeys
+            ];
+            if ($hostToNotify === DOTSMESH_SERVER_HOST_INTERNAL) {
+                Utilities::notifyChangesObservers($hostToNotify, $keys);
+                $result = 'internal call';
+            } else {
+                try {
+                    $result = self::makeServerRequest('POST', 'https://dotsmesh.' . $hostToNotify . '/?host&api', ['method' => 'host.changes.notify', 'args' => $args, 'options' => []]);
+                } catch (\Exception $e) {
+                    $result = $e->getMessage();
+                }
             }
+            self::log('host-changes-notify', $hostToNotify . ' ' . json_encode($args) . ' ' . json_encode($result));
         }
     }
 
-    static function notifyChangesObservers(string $host, array $keys)
+    /**
+     * 
+     * @param string $host
+     * @return string
+     */
+    static private function getObserverHostDataKey(string $host): string
+    {
+        return 'c/o/h/' . md5($host);
+    }
+
+    /**
+     * 
+     * @param string $host
+     * @return array
+     */
+    static function getObserverHostData(string $host): array
     {
         $app = App::get();
-        $hostDataKey = 'c/o/h/' . $host;
-        $hostData = $app->data->getValue($hostDataKey);
-        $hostData = $hostData === null ? [] : json_decode($hostData, true);
-        $usersToNotify = [];
-        foreach ($keys as $key) {
-            if (isset($hostData[$key])) {
-                foreach ($hostData[$key] as $userID) {
-                    if (!isset($usersToNotify[$userID])) {
-                        $usersToNotify[$userID] = [];
+        $data = $app->data->getValue(self::getObserverHostDataKey($host));
+        if ($data !== null) {
+            if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+                $data = json_decode($data, true);
+                if (is_array($data)) {
+                    $result = [];
+                    foreach ($data as $host => $userIDs) {
+                        if (is_array($userIDs)) {
+                            foreach ($userIDs as $userID) {
+                                if (!isset($result[$host])) {
+                                    $result[$host] = [];
+                                }
+                                $userIDParts = self::parseID($userID);
+                                if ($userIDParts !== null && $userIDParts['host'] === DOTSMESH_SERVER_HOST_INTERNAL) {
+                                    $result[$host][] = $userIDParts['key'];
+                                }
+                            }
+                        }
                     }
-                    $usersToNotify[$userID][] = $key;
+                    return $result;
+                }
+            } else {
+                $data = Utilities::unpack($data);
+                if ($data['name'] === 'u') {
+                    return $data['value'];
+                } else {
+                    throw new \Exception('');
                 }
             }
         }
-        foreach ($usersToNotify as $userID => $userKeys) {
+        return [];
+    }
+
+    /**
+     * 
+     * @param string $host
+     * @param array $data
+     * @return void
+     */
+    static function setObserverHostData(string $host, array $data)
+    {
+        $app = App::get();
+        $dataKey = self::getObserverHostDataKey($host);
+        if (empty($data)) {
+            $app->data->delete($dataKey);
+        } else {
+            $app->data->setValue($dataKey, self::pack('u', $data));
+        }
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @return string
+     */
+    static private function getObserverUserKeysDataKey(string $userID): string
+    {
+        return 'c/o/u/' . md5($userID);
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @return array
+     */
+    static function getObserverUserKeysData(string $userID): array
+    {
+        $app = App::get();
+        $data = $app->data->getValue(self::getObserverUserKeysDataKey($userID));
+        if ($data !== null) {
+            if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+                return json_decode($data, true);
+            } else {
+                $data = Utilities::unpack($data);
+                if ($data['name'] === 'i') {
+                    return $data['value'];
+                } else {
+                    throw new \Exception('');
+                }
+            }
+        }
+        return [];
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @param array $data
+     * @return void
+     */
+    static function setObserverUserKeysData(string $userID, array $data)
+    {
+        $app = App::get();
+        $dataKey = self::getObserverUserKeysDataKey($userID);
+        if (empty($data)) {
+            $app->data->delete($dataKey);
+        } else {
+            $app->data->setValue($dataKey, self::pack('i', $data));
+        }
+    }
+
+    /**
+     * Notify users about changes from a host.
+     * 
+     * @param string $host
+     * @param array $keys
+     * @return void
+     */
+    static function notifyChangesObservers(string $host, array $keys)
+    {
+        $app = App::get();
+        $hostData = self::getObserverHostData($host);
+        $usersToNotify = [];
+        foreach ($keys as $key) {
+            if (isset($hostData[$key])) {
+                foreach ($hostData[$key] as $userIDKey) {
+                    if (!isset($usersToNotify[$userIDKey])) {
+                        $usersToNotify[$userIDKey] = [];
+                    }
+                    $usersToNotify[$userIDKey][] = $key;
+                }
+            }
+        }
+        foreach ($usersToNotify as $userIDKey => $userKeys) {
+            $userID = $userIDKey . '.' . DOTSMESH_SERVER_HOST_INTERNAL;
+            $dataKeyPrefix = self::getPropertyDataPrefix($userID) . '/d/p/i/d/';
             foreach ($userKeys as $userKey) {
                 $messageID = '6' . md5($userKey);
-                $dataKey = self::getPropertyDataPrefix($userID) . '/d/p/i/d/' . $messageID;
-                $app->data->setValue($dataKey, Utilities::pack('1', [$userKey, Utilities::generateRandomBase62String(15)]));
+                $app->data->setValue($dataKeyPrefix . $messageID, Utilities::pack('1', [$userKey, Utilities::generateRandomBase62String(15)]));
             }
             Utilities::queuePushNotification($userID);
         }
     }
 
-    static function modifyChangesSubscription(string $host, array $keysToAdd, array $keysToRemove)
+    /**
+     * 
+     * @return array
+     */
+    static function getChangesSubscribersData(): array
     {
-        // todo lock
         $app = App::get();
         $keysDataKey = 'c/s/k';
         $data = $app->data->getValue($keysDataKey);
-        $data = $data === null ? [] : json_decode($data, true);
+        if ($data !== null) {
+            if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+                return json_decode($data, true);
+            } else {
+                $data = Utilities::unpack($data);
+                if ($data['name'] === 'y') {
+                    return $data['value'];
+                } else {
+                    throw new \Exception('');
+                }
+            }
+        }
+        return [];
+    }
+
+    /**
+     * 
+     * @param array $data
+     * @return void
+     */
+    static function setChangesSubscribersData(array $data)
+    {
+        $app = App::get();
+        $keysDataKey = 'c/s/k';
+        if (empty($data)) {
+            $app->data->delete($keysDataKey);
+        } else {
+            $app->data->setValue($keysDataKey, self::pack('y', $data));
+        }
+    }
+
+    /**
+     * 
+     * @param string $host
+     * @param array $keysToAdd
+     * @param array $keysToRemove
+     * @return void
+     */
+    static function modifyChangesSubscription(string $host, array $keysToAdd, array $keysToRemove)
+    {
+        // todo lock
+        $data = self::getChangesSubscribersData();
         $hasChange = false;
         foreach ($keysToAdd as $keyToAdd) {
             if (!isset($data[$keyToAdd])) {
@@ -548,16 +956,23 @@ class Utilities
             }
         }
         if ($hasChange) {
-            if (empty($data)) {
-                $app->data->delete($keysDataKey);
-            } else {
-                $app->data->setValue($keysDataKey, json_encode($data));
-            }
+            self::setChangesSubscribersData($data);
         }
     }
 
-    static function updateChangesObserver(string $userID)
+    /**
+     * Updates the changes observer with the latest user data.
+     * 
+     * @param string $userID
+     * @return void
+     */
+    static function updateChangesSubscriptions(string $userID)
     {
+        $userIDParts = self::parseID($userID);
+        if ($userIDParts === null) {
+            return;
+        }
+        $userIDKey = $userIDParts['key'];
         // todo validate userid
         // todo locks
         $app = App::get();
@@ -572,9 +987,7 @@ class Utilities
                 // not supported format
             }
         }
-        $appliedUserKeysDataKey = 'c/o/u/' . $userID;
-        $appliedUserKeys = $app->data->getValue($appliedUserKeysDataKey);
-        $appliedUserKeys = $appliedUserKeys === null ? [] : json_decode($appliedUserKeys, true);
+        $appliedUserKeys = self::getObserverUserKeysData($userID);
         $flattenKeys = function ($keysData) {
             $result = [];
             foreach ($keysData as $host => $keys) {
@@ -607,9 +1020,7 @@ class Utilities
                 $hasChange = false;
                 // todo validate $hostToChange
                 // todo host lock
-                $hostDataKey = 'c/o/h/' . $hostToChange;
-                $hostData = $app->data->getValue($hostDataKey);
-                $hostData = $hostData === null ? [] : json_decode($hostData, true);
+                $hostData = self::getObserverHostData($hostToChange);
                 if (isset($addedKeys[$hostToChange])) {
                     foreach ($addedKeys[$hostToChange] as $addedKey) {
                         if (!isset($hostData[$addedKey])) {
@@ -619,8 +1030,8 @@ class Utilities
                             }
                             $notifyAddedKeys[$hostToChange][] = $addedKey;
                         }
-                        if (array_search($userID, $hostData[$addedKey]) === false) {
-                            $hostData[$addedKey][] = $userID;
+                        if (array_search($userIDKey, $hostData[$addedKey]) === false) {
+                            $hostData[$addedKey][] = $userIDKey;
                             $hasChange = true;
                         }
                     }
@@ -628,7 +1039,7 @@ class Utilities
                 if (isset($removedKeys[$hostToChange])) {
                     foreach ($removedKeys[$hostToChange] as $removedKey) {
                         if (isset($hostData[$removedKey])) {
-                            $index = array_search($userID, $hostData[$removedKey]);
+                            $index = array_search($userIDKey, $hostData[$removedKey]);
                             if ($index !== false) {
                                 $hasChange = true;
                                 unset($hostData[$removedKey][$index]);
@@ -645,41 +1056,44 @@ class Utilities
                     }
                 }
                 if ($hasChange) {
-                    if (empty($hostData)) {
-                        $app->data->delete($hostDataKey);
-                    } else {
-                        $app->data->setValue($hostDataKey, json_encode($hostData));
-                    }
+                    self::setObserverHostData($hostToChange, $hostData);
                 }
             }
         }
 
-        if (empty($userKeys)) {
-            $app->data->delete($appliedUserKeysDataKey);
-        } else {
-            $app->data->setValue($appliedUserKeysDataKey, json_encode($userKeys));
-        }
+        self::setObserverUserKeysData($userID, $userKeys);
 
         if (!empty($notifyAddedKeys) || !empty($notifyRemovedKeys)) {
-            $parsedID = self::parseID($userID);
-            if ($parsedID !== null) {
-                $userHost = $parsedID['host'];
-                $hostsToNotify = array_unique(array_merge(array_keys($notifyAddedKeys), array_keys($notifyRemovedKeys)));
-                foreach ($hostsToNotify as $hostToNotify) {
+            $hosts = array_unique(array_merge(array_keys($notifyAddedKeys), array_keys($notifyRemovedKeys)));
+            foreach ($hosts as $host) {
+                $keysToAdd = isset($notifyAddedKeys[$host]) ? $notifyAddedKeys[$host] : [];
+                $keysToRemove = isset($notifyRemovedKeys[$host]) ? $notifyRemovedKeys[$host] : [];
+                if ($host === DOTSMESH_SERVER_HOST_INTERNAL) {
+                    Utilities::modifyChangesSubscription($host, $keysToAdd, $keysToRemove);
+                    $result = 'internal call';
+                } else {
                     $args = [
-                        'host' => $userHost,
-                        'keysToAdd' => isset($notifyAddedKeys[$hostToNotify]) ? $notifyAddedKeys[$hostToNotify] : [],
-                        'keysToRemove' => isset($notifyRemovedKeys[$hostToNotify]) ? $notifyRemovedKeys[$hostToNotify] : []
+                        'host' => DOTSMESH_SERVER_HOST_INTERNAL,
+                        'keysToAdd' => $keysToAdd,
+                        'keysToRemove' => $keysToRemove
                     ];
-                    $result = self::makeServerRequest('POST', 'https://dotsmesh.' . $hostToNotify . '/?host&api', ['method' => 'host.changes.subscription', 'args' => $args, 'options' => []]);
-                    $app->logs->log('subscribe', $userID . ' - ' . $hostToNotify . ' - ' . print_r($result, true));
+                    try {
+                        $result = self::makeServerRequest('POST', 'https://dotsmesh.' . $host . '/?host&api', ['method' => 'host.changes.subscription', 'args' => $args, 'options' => []]);
+                    } catch (\Exception $e) {
+                        $result = $e->getMessage();
+                    }
                 }
-            } else {
-                // should not get here, but just in case
+                self::log('host-changes-subscription', $userID . ' ' . $host . ' ' . json_encode($keysToAdd) . ' ' . json_encode($keysToRemove) . ' ' . json_encode($result));
             }
         }
     }
 
+    /**
+     * 
+     * @param string $name
+     * @param array $localVariables
+     * @return string
+     */
     static function getHTMLFileContent(string $name, array $localVariables = []): string
     {
         extract($localVariables);
@@ -688,6 +1102,12 @@ class Utilities
         return ob_get_clean();
     }
 
+    /**
+     * 
+     * @param App\Request $request
+     * @param boolean $extendSession
+     * @return boolean
+     */
     static function hasLoggedInAdmin(App\Request $request, bool $extendSession = false)
     {
         $app = App::get();
@@ -711,10 +1131,16 @@ class Utilities
         return false;
     }
 
-    static function loginAdmin(string $host, string $password, App\Response $response): bool
+    /**
+     * 
+     * @param string $password
+     * @param App\Response $response
+     * @return boolean
+     */
+    static function loginAdmin(string $password, App\Response $response): bool
     {
         $app = App::get();
-        if (self::validateAdminPassword($host, $password)) {
+        if (self::validateAdminPassword($password)) {
             $sessionKey = Utilities::generateRandomBase62String(rand(60, 70));
             $app->data->setValue('.temp/as', Utilities::pack('0', [$sessionKey, time()]));
             $cookie = $response->cookies->make('as', $sessionKey);
@@ -725,6 +1151,11 @@ class Utilities
         return false;
     }
 
+    /**
+     * 
+     * @param App\Response $response
+     * @return void
+     */
     static function logoutAdmin(App\Response $response): void
     {
         $app = App::get();
@@ -735,16 +1166,26 @@ class Utilities
         $response->cookies->set($cookie);
     }
 
-    static function setAdminPassword(string $host, string $password)
+    /**
+     * 
+     * @param string $password
+     * @return void
+     */
+    static function setAdminPassword(string $password)
     {
         $app = App::get();
-        $app->data->setValue('a/p/' . $host, Utilities::pack('0', password_hash($password, PASSWORD_DEFAULT)));
+        $app->data->setValue('a/pd', Utilities::pack('0', password_hash($password, PASSWORD_DEFAULT)));
     }
 
-    static private function validateAdminPassword(string $host, string $password)
+    /**
+     * 
+     * @param string $password
+     * @return void
+     */
+    static private function validateAdminPassword(string $password)
     {
         $app = App::get();
-        $data = $app->data->getValue('a/p/' . $host);
+        $data = $app->data->getValue('a/pd');
         if ($data !== null) {
             $data = Utilities::unpack($data);
             if ($data['name'] === '0') {
@@ -754,29 +1195,36 @@ class Utilities
         return false;
     }
 
-    static function getPropertiesList(string $host): array
+    /**
+     * 
+     * @return array
+     */
+    static function getPropertiesList(): array
     {
         $app = App::get();
-        $propertiesIDs = scandir($app->data->getFilename('p'));
+        $propertiesIDKeys = scandir($app->data->getFilename('p'));
         $result = [];
-        foreach ($propertiesIDs as $propertyID) {
-            if ($propertyID !== '.' && $propertyID !== '..') {
-                $propertyHost = substr($propertyID, strpos($propertyID, '.') + 1);
-                if ($propertyHost !== $host) {
-                    continue;
-                }
-                $data = $app->data->getValue('p/' . $propertyID . '/x');
+        foreach ($propertiesIDKeys as $propertyIDKey) {
+            if ($propertyIDKey !== '.' && $propertyIDKey !== '..') {
+                $data = $app->data->getValue('p/' . $propertyIDKey . '/x');
                 if ($data !== null) {
-                    $result[$propertyID] = json_decode($data, true);
+                    $result[$propertyIDKey . '.' . DOTSMESH_SERVER_HOST_INTERNAL] = self::parsePropertyData($data);
                 }
             }
         }
         return $result;
     }
 
+    /**
+     * 
+     * @param string $value
+     * @param array $namesFilter
+     * @param string $order
+     * @param integer $limit
+     * @return array
+     */
     static function parseLog(string $value, array $namesFilter = null, string $order = 'asc', int $limit = null): array
     {
-
         $lines = explode("\n", $value);
         if ($order === 'desc') {
             $lines = array_reverse($lines);
@@ -815,9 +1263,19 @@ class Utilities
      */
     static function log(string $type, string $text)
     {
-        if (array_search($type, DOTSMESH_SERVER_LOG_TYPES) !== false) {
+        if (self::isLogEnabled($type)) {
             $app = App::get();
             $app->logs->log($type, DOTSMESH_SERVER_HOST_INTERNAL . ' | ' . $text);
         }
+    }
+
+    /**
+     * 
+     * @param string $type
+     * @return boolean
+     */
+    static function isLogEnabled(string $type): bool
+    {
+        return array_search($type, DOTSMESH_SERVER_LOG_TYPES) !== false;
     }
 }

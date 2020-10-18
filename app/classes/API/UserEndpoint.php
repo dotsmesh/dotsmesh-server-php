@@ -33,32 +33,98 @@ class UserEndpoint extends Endpoint
         return $id;
     }
 
+    /**
+     * 
+     * @return boolean
+     */
     protected function hasSessionKey(): bool
     {
         return $this->hasOption('sessionKey');
     }
 
-    protected function requireValidSessionKey(string $userID): array
+    /**
+     * 
+     * @param string $userID
+     * @param string $sessionKey
+     * @return string
+     */
+    protected function getSessionDataKey(string $userID, string $sessionKey): string
+    {
+        $dataPrefix = $this->getDataPrefix($userID);
+        return $dataPrefix . 'e/' . md5($sessionKey);
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @param string $sessionKey
+     * @return array|null
+     */
+    protected function getSessionData(string $userID, string $sessionKey): ?array
     {
         $app = App::get();
-        $sessionKey = $this->getOption('sessionKey', ['notEmptyString']);
-        $sessionKeyHash = Utilities::getHash('SHA-512', $sessionKey);
-        $dataPrefix = $this->getDataPrefix($userID);
-        $sessionDataKey = $dataPrefix . 'e/' . md5($sessionKeyHash);
+        $sessionDataKey = $this->getSessionDataKey($userID, $sessionKey);
         $sessionData = $app->data->getValue($sessionDataKey);
         if ($sessionData !== null) {
-            $sessionData = json_decode($sessionData, true);
-            if ($sessionData['s'] === $sessionKeyHash) {
-                return [
-                    'dataKey' => $sessionDataKey,
-                    'sessionData' => $sessionData['d'],
-                    'pushData' => isset($sessionData['p']) ? $sessionData['p'] : null,
-                ];
+            $sessionData = Utilities::parseUserSessionData($sessionData);
+            if (is_array($sessionData) && isset($sessionData['s']) && $sessionData['s'] === $sessionKey) {
+                return $sessionData;
             }
+        }
+        return null;
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @param string $sessionKey
+     * @param array $data
+     * @return void
+     */
+    protected function setSessionData(string $userID, string $sessionKey, array $data): void
+    {
+        $app = App::get();
+        $sessionDataKey = $this->getSessionDataKey($userID, $sessionKey);
+        $app->data->setValue($sessionDataKey, Utilities::pack('q', $data));
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @param string $sessionKey
+     * @return void
+     */
+    protected function deleteSessionData(string $userID, string $sessionKey): void
+    {
+        $app = App::get();
+        $sessionDataKey = $this->getSessionDataKey($userID, $sessionKey);
+        $app->data->delete($sessionDataKey);
+    }
+
+    /**
+     * 
+     * @param string $userID
+     * @return array
+     */
+    protected function requireValidSessionKey(string $userID): array
+    {
+        $sessionKey = Utilities::getHash('SHA-512', $this->getOption('sessionKey', ['notEmptyString']));
+        $data = $this->getSessionData($userID, $sessionKey);
+        if ($data !== null) {
+            return [
+                'key' => $sessionKey,
+                'sessionData' => isset($data['d']) ? $data['d'] : '',
+                'pushData' => isset($data['p']) ? $data['p'] : null,
+            ];
         }
         throw new EndpointError('invalidSessionKey', 'The session key provided is not valid!');
     }
 
+    /**
+     * 
+     * @param string $userID
+     * @return string
+     */
     protected function requireValidAccessKey(string $userID): string
     {
         $app = App::get();
@@ -82,30 +148,49 @@ class UserEndpoint extends Endpoint
         throw new EndpointError('invalidAccessKey', 'The access key provided is not valid!');
     }
 
-    protected function generateSessionKey(): string
+    /**
+     * 
+     * @param string $data
+     * @return array|null
+     */
+    protected static function parseAuthData(string $data): ?array
     {
-        return Utilities::generateRandomBase36String(rand(50, 80));
+        if (substr($data, 0, 1) === '{') { // Old format used in <= v1.1
+            return json_decode($data, true);
+        } else {
+            $data = Utilities::unpack($data);
+            if ($data['name'] === 'r') {
+                return $data['value'];
+            }
+        }
+        return null;
     }
 
-    // protected function validateAppID(string $appID): void
-    // {
-    //     if (!Utilities::isAlphanumeric($appID, 80)) {
-    //         throw new EndpointError('invalidAppID', 'The appID provided is not valid!'); // todo check real apps
-    //     }
-    // }
-
+    /**
+     * 
+     * @param string $userID
+     * @param string $key
+     * @param mixed $data
+     * @return void
+     */
     protected function setAuthData(string $userID, string $key, $data)
     {
         $app = App::get();
         $authKeyHash = Utilities::getHash('SHA-512', $key);
         $dataPrefix = $this->getDataPrefix($userID);
-        $app->data->setValue($dataPrefix . 'a/' . md5($authKeyHash), json_encode([
+        $app->data->setValue($dataPrefix . 'a/' . md5($authKeyHash), Utilities::pack('r', [
             'k' => $authKeyHash,
             'd' => $data
         ]));
     }
 
-    protected function getAuthData(string $userID, string $key)
+    /**
+     * 
+     * @param string $userID
+     * @param string $key
+     * @return array|null
+     */
+    protected function getAuthData(string $userID, string $key): ?array
     {
         $authKeyHash = Utilities::getHash('SHA-512', $key);
         $app = App::get();
@@ -113,8 +198,8 @@ class UserEndpoint extends Endpoint
         $dataKey = $dataPrefix . 'a/' . md5($authKeyHash);
         $authData = $app->data->getValue($dataKey);
         if ($authData !== null) {
-            $authData = json_decode($authData, true);
-            if (isset($authData['k']) && $authData['k'] === $authKeyHash) {
+            $authData = self::parseAuthData($authData);
+            if (is_array($authData) && isset($authData['k']) && $authData['k'] === $authKeyHash) {
                 return [
                     'data' => $authData['d'],
                     'dataKey' => $dataKey
