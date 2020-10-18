@@ -124,7 +124,7 @@ $app->routes
                     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
                     return $response;
                 }
-            } elseif ($request->query->exists('migratedata')) {
+            } elseif ($request->query->exists('migrate')) {
                 $response = new App\Response\Text(\X\DataMigration::migrate());
                 $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
                 return $response;
