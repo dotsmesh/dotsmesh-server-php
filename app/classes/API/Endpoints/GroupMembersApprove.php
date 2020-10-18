@@ -41,7 +41,7 @@ class GroupMembersApprove extends GroupEndpoint
                     $app->data->delete($memberSourceDataKeyPrefix . 'a');
                     $this->addToGroupLog('s', $groupID, 'm', '0', $memberIDToApprove);
                     $this->addToMemberLog('s', $groupID, $memberIDToApprove, '0');
-                    $this->announceChanges($groupID, ['gm', 'gma', 'gmp', 'gm/' . $memberID . '/s']);
+                    $this->announceChanges($groupID, ['gm', 'gma', 'gmp', 'gm/' . $memberIDToApprove . '/s']);
                 } else {
                     throw new \Exception();
                 }
