@@ -40,7 +40,7 @@ class UserInbox extends UserEndpoint
             $app->data->setValue($dataPrefix . 'r/' . $messageID . '-' . $resourceID, $value);
         }
 
-        Utilities::queuePushNotifications($userID);
+        Utilities::queuePushNotification($userID);
 
         return 'ok';
     }
