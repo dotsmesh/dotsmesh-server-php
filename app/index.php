@@ -111,6 +111,7 @@ $app->routes
                     Utilities::setAdminPassword($request->query->getValue('setadminpassword'));
                     $response = new App\Response\Text('ok');
                     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                    $response->headers->set($response->headers->make('Cache-Control', 'no-cache, no-store, must-revalidate, private, max-age=0'));
                     return $response;
                 }
             } elseif ($request->query->exists('viewdata')) {
@@ -122,11 +123,13 @@ $app->routes
                     }
                     $response = new App\Response\Text(implode("\n", $keys));
                     $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                    $response->headers->set($response->headers->make('Cache-Control', 'no-cache, no-store, must-revalidate, private, max-age=0'));
                     return $response;
                 }
             } elseif ($request->query->exists('migrate')) {
                 $response = new App\Response\Text(\X\DataMigration::migrate());
                 $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                $response->headers->set($response->headers->make('Cache-Control', 'no-cache, no-store, must-revalidate, private, max-age=0'));
                 return $response;
             }
         }
