@@ -91,7 +91,12 @@ $app->classes
 $app->routes
     ->add('/', function (App\Request $request) use ($app, $host) {
         if ($request->query->exists('host')) {
-            if ($request->query->exists('admin')) {
+            if ($request->query->exists('heartbeat')) {
+                $response = new App\Response\JSON(json_encode(['status' => 'ok', 'time' => time()]));
+                $response->headers->set($response->headers->make('X-Robots-Tag', 'noindex,nofollow'));
+                $response->headers->set($response->headers->make('Cache-Control', 'no-cache, no-store, must-revalidate, private, max-age=0'));
+                return $response;
+            } elseif ($request->query->exists('admin')) {
                 $hasAPISecret = defined('DOTSMESH_SERVER_ADMIN_API_SECRET') && strlen(DOTSMESH_SERVER_ADMIN_API_SECRET) > 0;
                 if (!$hasAPISecret) {
                     $hasLoggedInAdmin = Utilities::hasLoggedInAdmin($request, true);
