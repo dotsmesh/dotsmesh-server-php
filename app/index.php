@@ -139,7 +139,7 @@ $app->routes
             }
         }
     })
-    ->add('OPTIONS /', function (App\Request $request) {
+    ->add('OPTIONS /', function (App\Request $request) { // Todo remove in the future
         $method = strtoupper($request->headers->getValue('Access-Control-Request-Method'));
         if ($method === 'POST') {
             $response = new App\Response();
