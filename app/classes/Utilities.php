@@ -1111,7 +1111,7 @@ class Utilities
     static function hasLoggedInAdmin(App\Request $request, bool $extendSession = false)
     {
         $app = App::get();
-        $sessionKey = $request->cookies->getValue('as'); // admin session
+        $sessionKey = (string)$request->cookies->getValue('as'); // admin session
         if (strlen($sessionKey) > 0) {
             $sessionData = $app->data->getValue('.temp/as');
             if ($sessionData !== null) {
