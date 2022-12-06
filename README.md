@@ -4,7 +4,7 @@ This package is responsible for storing and delivering your profiles and groups 
 
 ## Requirements
 - A web server (Apache, NGINX, etc.)
-- PHP 7.2+
+- PHP 7.4+
 - A domain starting with "dotsmesh." (dotsmesh.example.com)
 - SSL/TLS certificate
 
